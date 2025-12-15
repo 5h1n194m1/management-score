@@ -1,13 +1,19 @@
 <script setup>
-import { ref, onMounted } from 'vue';
-import { RouterView, useRouter } from 'vue-router';
-import { supabase } from '@/supabaseClient.js'; 
-import AppLayout from '@/components/AppLayout.vue'; 
+    import { computed, watch, onMounted } from 'vue';
+    import { useRoute, useRouter } from 'vue-router';
+    import { useAuth } from '@stores/auth'
+    import { ref, onMounted } from 'vue';
+    import { RouterView, useRouter } from 'vue-router';
+    import { supabase } from '@/supabaseClient.js'; 
+    import AppLayout from '@/components/AppLayout.vue'; 
+    import LoginView from './views/LoginView.vue';
 
-const router = useRouter();
-const loading = ref(true);
-const session = ref(null);
-const userRole = ref('guest'); 
+    const route =useRoute();
+    const router = useRouter();
+    const authStore = useAuth();
+    const loading = ref(true);
+    const session = ref(null);
+    const userRole = ref('guest'); 
 
 /**
  * Fungsi untuk mengambil role pengguna dari tabel profiles
