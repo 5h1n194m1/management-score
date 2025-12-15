@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 // PASTIKAN PATH INI MENUNJUK KE FILE KONFIGURASI SUPABASE ANDA
-import { supabase } from '@/lib/supabaseClient'; 
+import { supabase } from '@/supabaseClient.js'; 
 
 const router = useRouter();
 // Gunakan ref untuk menyimpan data hasil query Supabase

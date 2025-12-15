@@ -8,14 +8,19 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // Cek keamanan
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("FATAL CONFIG ERROR: VITE_SUPABASE_URL atau VITE_SUPABASE_ANON_KEY hilang di .env.local.")
-} else {
-    // Log baru
-    console.log("LOG: Supabase URL and Key loaded successfully.");
+  console.error("FATAL CONFIG ERROR: VITE_SUPABASE_URL atau VITE_SUPABASE_ANON_KEY hilang di .env.local.")
+} else if (import.meta.env.DEV) {
+  console.log("LOG: Supabase URL and Key loaded successfully.")
 }
 
 // Inisialisasi dan ekspor klien Supabase
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+})
 
-// Log baru
-console.log("LOG: Supabase client initialized.");
+if (import.meta.env.DEV) {
+  console.log("LOG: Supabase client initialized.")
+}

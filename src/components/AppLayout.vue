@@ -2,10 +2,12 @@
 // import { defineProps } from 'vue';
 import { supabase } from '@/supabaseClient.js';
 import { useRouter, useRoute } from 'vue-router'; // <-- Tambahkan useRoute
+import { useAuth } from '@/stores/auth'
 
 // Inisialisasi router dan route
 const router = useRouter();
 const route = useRoute(); // <-- Digunakan untuk mengakses nama rute
+const authStore = useAuth()
 
 const props = defineProps({
     userRole: {
@@ -48,7 +50,7 @@ const handleLogout = async () => {
 };
 
 const getCurrentUserEmail = () => {
-    return supabase.auth.currentUser?.email || 'Authenticated User';
+    return authStore.userData?.email || 'Authenticated User';
 }
 </script>
 

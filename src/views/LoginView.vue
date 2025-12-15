@@ -28,6 +28,7 @@
 import { ref } from 'vue';
 import { supabase } from '@/supabaseClient.js';
 import { useRouter } from 'vue-router'; // Untuk navigasi setelah login
+import { useAuth } from '@/stores/auth'
 
 const email = ref('');
 const password = ref('');
@@ -35,6 +36,7 @@ const loading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
 const router = useRouter();
+const authStore = useAuth();
 
 // Fungsi untuk menangani proses login
 const handleLogin = async () => {
@@ -52,6 +54,14 @@ const handleLogin = async () => {
       errorMessage.value = error.message;
     } else {
       successMessage.value = 'Login Berhasil! Mengarahkan ke Dashboard...';
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const role =
+          user.app_metadata?.role ||
+          user.user_metadata?.role ||
+          'operator'
+        authStore.setAuthUser({ id: user.id, email: user.email, role })
+      }
       // Navigasi ke halaman utama setelah login berhasil
       router.push('/'); 
     }

@@ -42,6 +42,22 @@ export const useAuth = defineStore('auth', () => {
     router.push('/public-dashboard'); 
   };
   
+  const setAuthUser = (payload) => {
+    userData.value = payload
+    isLoggedIn.value = !!payload
+    if (payload) {
+      localStorage.setItem('user_data', JSON.stringify(userData.value))
+    } else {
+      localStorage.removeItem('user_data')
+    }
+  }
+
+  const clearAuth = () => {
+    isLoggedIn.value = false
+    userData.value = null
+    localStorage.removeItem('user_data')
+  }
+  
   const checkAuth = () => {
       const storedUser = localStorage.getItem('user_data');
       if (storedUser) {
@@ -53,5 +69,5 @@ export const useAuth = defineStore('auth', () => {
       }
   }
 
-  return { isLoggedIn, userData, userRole, signIn, signOut, checkAuth };
+  return { isLoggedIn, userData, userRole, signIn, signOut, checkAuth, setAuthUser, clearAuth };
 });
