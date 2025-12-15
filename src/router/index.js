@@ -6,6 +6,8 @@ import LoginView from '../views/LoginView.vue'
 import OperatorDashboardView from '../views/OperatorDashboardView.vue'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
 import PublicDashboardView from '../views/PublicDashboardView.vue' // Landing Page
+import EventManageView from '../views/EventManageView.vue'
+import RecapView from '../views/RecapView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -18,12 +20,12 @@ const router = createRouter({
       meta: { requiresAuth: false, layout: 'default' } 
     },
     
-    // 2. Rute Root (Hanya untuk yang Sudah Login)
+    // 2. Rute Root (Landing Dashboard)
     {
       path: '/',
       name: 'operator-dashboard',
       component: OperatorDashboardView,
-      meta: { requiresAuth: true, roles: ['operator', 'admin'], layout: 'AppLayout' } 
+      meta: { requiresAuth: false, roles: ['operator', 'admin'], layout: 'AppLayout' } 
     },
     
     // 3. Rute Login
@@ -41,6 +43,20 @@ const router = createRouter({
       component: AdminDashboardView,
       meta: { requiresAuth: true, roles: ['admin'], layout: 'AppLayout' } 
     },
+    // 5. Rute Manajemen Event (Operator/Admin)
+    {
+      path: '/events/:id',
+      name: 'event-manage',
+      component: EventManageView,
+      meta: { requiresAuth: true, roles: ['operator','admin'], layout: 'AppLayout' }
+    },
+    // 6. Rute Recap Publik
+    {
+      path: '/recap/:eventId',
+      name: 'recap',
+      component: RecapView,
+      meta: { requiresAuth: false, layout: 'default' }
+    }
   ]
 })
 
