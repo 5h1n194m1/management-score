@@ -3,6 +3,7 @@ import { supabase } from '@/supabaseClient.js'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/stores/auth'
 import { ref, onMounted } from 'vue'
+import { getProfileTheme, upsertProfileTheme } from '@/services/db.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -44,15 +45,25 @@ const applyTheme = (dark) => {
   isDark.value = dark
   document.documentElement.classList.toggle('dark', dark)
   localStorage.setItem('theme', dark ? 'dark' : 'light')
+  const uid = authStore.userData?.id
+  if (uid) {
+    // Sinkronisasi ke profil (jika kolom theme tersedia)
+    upsertProfileTheme(uid, dark ? 'dark' : 'light').catch(() => {})
+  }
 }
 const toggleTheme = () => applyTheme(!isDark.value)
 onMounted(() => {
+  const uid = authStore.userData?.id
   const saved = localStorage.getItem('theme')
-  if (saved === 'dark' || saved === 'light') {
-    applyTheme(saved === 'dark')
-  } else {
-    const prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-    applyTheme(prefers)
+  const prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  const initial = saved === 'dark' ? true : saved === 'light' ? false : prefers
+  applyTheme(initial)
+  if (uid) {
+    getProfileTheme(uid).then(({ data }) => {
+      if (data?.theme === 'dark' || data?.theme === 'light') {
+        applyTheme(data.theme === 'dark')
+      }
+    }).catch(() => {})
   }
 })
 </script>
@@ -83,6 +94,15 @@ onMounted(() => {
       </nav>
       <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700">
         <div class="text-sm text-slate-500 dark:text-slate-400 mb-2 truncate">{{ userEmail() }}</div>
+        <div class="mb-3 flex items-center justify-between">
+          <span class="text-xs text-slate-600 dark:text-slate-300">Tema</span>
+          <button
+            @click="toggleTheme"
+            class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition duration-300"
+          >
+            {{ isDark ? 'Dark' : 'Light' }}
+          </button>
+        </div>
         <button
           v-if="authStore.isLoggedIn"
           @click="handleLogout"
@@ -104,9 +124,6 @@ onMounted(() => {
           <div class="flex items-center gap-2">
             <button @click="collapsed = !collapsed" class="px-3 py-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition duration-300">
               {{ collapsed ? 'Expand' : 'Collapse' }}
-            </button>
-            <button @click="toggleTheme" class="px-3 py-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition duration-300">
-              {{ isDark ? 'Light' : 'Dark' }}
             </button>
           </div>
         </div>

@@ -51,6 +51,8 @@ const leaderboard = ref([])
 const overlayVisible = ref(false)
 const overlayScale = ref(1)
 const screenshotFile = ref(null)
+const hover = ref({ team: null, x: 0, y: 0 })
+let hoverTimer = null
 
 const loading = ref(true)
 const error = ref(null)
@@ -194,6 +196,14 @@ const saveScore = async (teamId, field, value) => {
 }
 
 const updatePointMap = async () => {
+  // Validasi nilai poin (non-negatif dan integer)
+  for (const row of pointMap.value) {
+    if (typeof row.points !== 'number' || !Number.isFinite(row.points) || row.points < 0) {
+      alert('Nilai poin harus angka >= 0.')
+      return
+    }
+    row.points = Math.round(row.points)
+  }
   await upsertPointMapping(eventId.value, pointMap.value)
   await refreshLeaderboard()
 }
@@ -243,6 +253,11 @@ const removeSelectedPot = async () => {
 
 const addTeam = async () => {
   if (!newTeamName.value.trim()) return
+  // Batasi jumlah tim per pot maksimal 30
+  if ((teamsInPot.value?.length || 0) >= 30) {
+    alert('Maksimal 30 tim per pot.')
+    return
+  }
   const members = newTeamMembersText.value.split('\n').map(s => s.trim()).filter(Boolean)
   const { data } = await createTeam(eventId.value, newTeamName.value.trim(), members)
   newTeamName.value = ''
@@ -295,6 +310,59 @@ const exportExcel = async () => {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+// Export/Import Template Poin (JSON)
+const exportPointTemplate = () => {
+  const template = {
+    name: `Template Poin Event ${eventId.value}`,
+    version: '1.0.0',
+    points: pointMap.value.map(r => ({ rank_position: r.rank_position, points: r.points })),
+    metadata: { created_at: new Date().toISOString() }
+  }
+  const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `point_template_${eventId.value}.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+const importInputRef = ref(null)
+const importPointTemplate = async (e) => {
+  const file = e?.target?.files?.[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    const json = JSON.parse(text)
+    if (!Array.isArray(json.points)) throw new Error('Format template tidak valid.')
+    pointMap.value = json.points.map(p => ({ rank_position: Number(p.rank_position), points: Number(p.points) }))
+    await upsertPointMapping(eventId.value, pointMap.value)
+    await refreshLeaderboard()
+    alert('Template poin berhasil diimpor.')
+  } catch (err) {
+    alert('Gagal mengimpor template: ' + (err?.message || 'Unknown error'))
+  } finally {
+    if (importInputRef.value) importInputRef.value.value = ''
+  }
+}
+
+// Hover preview tim (delay 300ms, floating window)
+const onEnterTeam = (team, evt) => {
+  clearTimeout(hoverTimer)
+  const { clientX, clientY } = evt
+  hoverTimer = setTimeout(() => {
+    hover.value = { team, x: clientX + 12, y: clientY + 12 }
+  }, 300)
+}
+const onLeaveTeam = () => {
+  clearTimeout(hoverTimer)
+  hoverTimer = setTimeout(() => {
+    hover.value = { team: null, x: 0, y: 0 }
+  }, 50)
 }
 
 onMounted(loadEventData)
@@ -364,6 +432,11 @@ watch(selectedPotId, async () => {
           </div>
         </div>
         <button @click="updatePointMap" class="mt-2 px-3 py-2 bg-green-600 text-white rounded">Simpan Poin</button>
+        <div class="mt-3 flex gap-2">
+          <button @click="exportPointTemplate" class="px-3 py-2 bg-slate-700 text-white rounded">Export Template (JSON)</button>
+          <input ref="importInputRef" type="file" accept="application/json" @change="importPointTemplate" class="hidden" />
+          <button @click="importInputRef && importInputRef.click()" class="px-3 py-2 bg-slate-500 text-white rounded">Import Template</button>
+        </div>
       </div>
 
       <div class="mb-4">
@@ -395,9 +468,22 @@ watch(selectedPotId, async () => {
       </div>
 
       <div v-if="overlayVisible" class="mb-4">
-        <div v-for="g in games" :key="g.id" v-show="g.id === currentGameId" class="relative border rounded">
-          <img v-if="g.screenshot_url" :src="g.screenshot_url" alt="Screenshot" class="max-h-96 mx-auto object-contain" />
-          <p v-else class="p-4 text-gray-500">Tidak ada screenshot untuk game ini.</p>
+        <div
+          v-for="g in games"
+          :key="g.id"
+          v-show="g.id === currentGameId"
+          class="relative border rounded overflow-auto"
+          @wheel="onWheelOverlay"
+        >
+          <div class="inline-block origin-top-left" :style="{ transform: 'scale(' + overlayScale + ')' }">
+            <img
+              v-if="g.screenshot_url"
+              :src="g.screenshot_url"
+              alt="Screenshot"
+              class="max-h-[32rem] object-contain"
+            />
+            <p v-else class="p-4 text-gray-500">Tidak ada screenshot untuk game ini.</p>
+          </div>
         </div>
       </div>
 
@@ -415,11 +501,12 @@ watch(selectedPotId, async () => {
         <tbody class="bg-white divide-y divide-gray-100">
           <tr v-for="t in teamsInPot" :key="t.id">
             <td class="px-3 py-2">
-              <span class="relative group">
+              <span
+                class="relative"
+                @mouseenter="onEnterTeam(t, $event)"
+                @mouseleave="onLeaveTeam"
+              >
                 {{ t.name }}
-                <span class="absolute left-0 top-full mt-1 hidden group-hover:block bg-slate-900 text-white text-xs rounded px-2 py-1">
-                  Anggota: {{ (t.members || []).join(', ') || '—' }}
-                </span>
               </span>
               <label class="ml-2 text-xs"><input type="checkbox" :checked="teamsToTransfer.has(t.id)" @change="(e) => { const set=teamsToTransfer; if(e.target.checked) set.add(t.id); else set.delete(t.id); teamsToTransfer=set }" /> GF</label>
             </td>
@@ -439,6 +526,36 @@ watch(selectedPotId, async () => {
           </tr>
         </tbody>
       </table>
+      </div>
+
+      <!-- Floating hover preview window -->
+      <div
+        v-if="hover.team"
+        :style="{ top: hover.y + 'px', left: hover.x + 'px' }"
+        class="fixed z-50 w-64 rounded-lg shadow-lg border border-slate-200 bg-white"
+      >
+        <div class="px-3 py-2 rounded-t-lg" style="background-color:#2c3e50">
+          <div class="text-white text-sm font-semibold">Team: {{ hover.team.name }}</div>
+        </div>
+        <div class="p-3">
+          <table class="w-full text-sm">
+            <thead>
+              <tr>
+                <th class="text-left">Username</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(m, idx) in (hover.team.members || [])"
+                :key="idx"
+                class="hover:bg-slate-100"
+                :class="idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'"
+              >
+                <td class="px-2 py-1">{{ m }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div class="mt-6">

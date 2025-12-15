@@ -216,3 +216,24 @@ export const subscribeRawScoresByEvent = (eventId, handler) => {
     )
     .subscribe()
 }
+
+// Profile helpers (theme preference)
+export const getProfileTheme = async (userId) => {
+  if (!userId) return { data: null, error: new Error('User tidak valid') }
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, theme')
+    .eq('id', userId)
+    .maybeSingle()
+  return { data, error }
+}
+
+export const upsertProfileTheme = async (userId, theme) => {
+  if (!userId) return { data: null, error: new Error('User tidak valid') }
+  // Upsert akan membuat atau memperbarui baris profil pengguna
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert({ id: userId, theme }, { onConflict: 'id' })
+    .select()
+  return { data: data?.[0] || null, error }
+}
