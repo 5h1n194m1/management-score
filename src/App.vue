@@ -1,198 +1,66 @@
 <script setup>
-    import { computed, watch, onMounted } from 'vue';
-    import { useRoute, useRouter } from 'vue-router';
-    import { useAuth } from '@stores/auth'
-    import { ref, onMounted } from 'vue';
-    import { RouterView, useRouter } from 'vue-router';
-    import { supabase } from '@/supabaseClient.js'; 
-    import AppLayout from '@/components/AppLayout.vue'; 
-    import LoginView from './views/LoginView.vue';
+import { computed, watch, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useAuth } from '@/stores/auth'; // PASTIKAN PATH INI BENAR
+import AppLayout from '@/components/AppLayout.vue'; // Layout profesional
 
-    const route =useRoute();
-    const router = useRouter();
-    const authStore = useAuth();
-    const loading = ref(true);
-    const session = ref(null);
-    const userRole = ref('guest'); 
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuth();
 
-/**
- * Fungsi untuk mengambil role pengguna dari tabel profiles
- */
-// C:\management-score\src\App.vue
+// --- Computed Property untuk Menentukan Layout ---
+// Layout 'AppLayout' digunakan untuk dashboard yang butuh sidebar, 
+// sisanya menggunakan layout default (div)
+const currentLayout = computed(() => {
+  if (route.meta.layout === 'AppLayout') {
+    return AppLayout;
+  }
+  return 'div'; 
+});
 
-/**
- * Fungsi untuk mengambil role pengguna dari tabel profiles
- */
-const fetchUserRole = async (userId) => {
-    console.log(`LOG: Starting fetchUserRole for ID: ${userId}`);
-    try {
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('role') // Kita hanya butuh kolom 'role'
-            .eq('id', userId) 
-            .single(); // Gunakan single untuk memastikan hanya satu baris
+// --- Logic Watcher untuk Autentikasi dan Redirect ---
+watch(() => [route.path, authStore.isLoggedIn, authStore.userRole], ([newPath, newStatus, newRole]) => {
+  
+  const requiresAuth = route.meta.requiresAuth;
+  const requiredRoles = route.meta.roles;
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 = No rows found (ini normal jika user belum punya profile)
-            console.error("LOG: Supabase Query Error:", error.message, error.code);
-            throw error; 
-        }
-        
-        // Mengembalikan role, atau 'user' sebagai default jika profile tidak ditemukan
-        const role = profile?.role || 'user';
-        console.log(`LOG: Successfully fetched role: ${role}`);
-        return role; 
-    } catch (e) {
-        console.error("LOG: FATAL Error during fetchUserRole. Returning 'user'.", e.message);
-        // Jika ada error fatal (timeout, koneksi, dll.), kita tetap kembalikan default
-        return 'user'; 
-    }
-};
+  // A. Guard: Jika Rute Membutuhkan Auth TAPI User TIDAK Login
+  if (requiresAuth && !authStore.isLoggedIn) {
+      if (newPath !== '/public-dashboard' && newPath !== '/login') {
+          // Redirect ke Landing Page Publik jika mencoba mengakses rute terproteksi
+          router.push('/public-dashboard');
+      }
+      return; 
+  }
+  
+  // B. Guard: Jika User SUDAH Login
+  if (authStore.isLoggedIn) {
+      // Jika mencoba akses /login atau /public-dashboard, redirect ke Dashboard utama (/)
+      if (newPath === '/login' || newPath === '/public-dashboard') {
+          router.push('/');
+          return;
+      }
+      
+      // C. Guard: Cek Role Access
+      if (requiredRoles && !requiredRoles.includes(newRole)) {
+          // Jika role tidak sesuai (misal: operator mencoba akses /admin)
+          router.push('/'); 
+          return;
+      }
+  }
 
-/**
- * Menangani redirect berdasarkan role dan rute saat ini.
- */
-const handleAuthRedirect = (role, currentRoute) => {
-    const currentPath = currentRoute.path;
-    const requiresAuth = currentRoute.meta.requiresAuth;
-    const targetPath = (role === 'admin') 
-        ? '/admin' 
-        : (role === 'operator' ? '/dashboard' : '/');
+}, { immediate: true }); 
 
-    // 1. Redirect Login ke Dashboard jika sudah Auth
-    if (session.value && currentPath === '/login') {
-        router.push(targetPath);
-        return;
-    }
-
-    // 2. Redirect jika mencoba akses rute terlarang (Admin Area)
-    if (currentPath.startsWith('/admin') && role !== 'admin') {
-        router.push(targetPath); 
-        return;
-    }
-
-    // 3. Redirect ke Login jika rute memerlukan otentikasi tetapi tidak ada sesi
-    if (requiresAuth && !session.value && currentPath !== '/login') {
-        router.push('/login');
-        return;
-    }
-    
-    // 4. Redirect default untuk user baru jika login berhasil ke non-dashboard
-    if (session.value && (currentPath === '/' || currentPath === '/login') && currentPath !== targetPath) {
-        if (role !== 'guest') {
-             router.push(targetPath);
-        }
-    }
-};
-
-
-// Setup Supabase listener dan inisialisasi sesi
+// 3. Pastikan status auth dimuat saat aplikasi dijalankan
 onMounted(() => {
-    console.log("APP INIT: Component Mounted, Starting Supabase Check...");
-    
-    // 1. Listener utama untuk menangani perubahan state (login/logout)
-    supabase.auth.onAuthStateChange(async (event, currentSession) => {
-        console.log(`AUTH CHANGE DETECTED: Event: ${event}, Session Exists: ${!!currentSession}`);
-        session.value = currentSession;
-        
-        try {
-            if (currentSession) {
-                userRole.value = await fetchUserRole(currentSession.user.id);
-            } else {
-                userRole.value = 'guest';
-            }
-        } catch (e) {
-            console.error("LOG: Critical Auth State Change Error during fetchRole:", e);
-            userRole.value = 'guest'; 
-        } finally {
-            handleAuthRedirect(userRole.value, router.currentRoute.value);
-            loading.value = false;
-            console.log("LOG: onAuthStateChange FINISHED. Loading = false.");
-        }
-    });
-    
-    // 2. Cek Sesi Awal untuk Inisialisasi
-    console.log("LOG: Calling supabase.auth.getSession() for initial load...");
-    
-    supabase.auth.getSession()
-        .then(async ({ data: { session: currentSession } }) => {
-            console.log(`LOG: getSession() RESOLVED. Session Exists: ${!!currentSession}`);
-            
-            if (!currentSession) {
-                session.value = null;
-                userRole.value = 'guest';
-            } else {
-                session.value = currentSession;
-                // Ambil role hanya jika sesi ada dan listener belum memicu
-                if (loading.value) {
-                    userRole.value = await fetchUserRole(currentSession.user.id);
-                }
-            }
-
-            if (loading.value) {
-                 handleAuthRedirect(userRole.value, router.currentRoute.value);
-                 loading.value = false; // FINALLY, hentikan loading.
-                 console.log("LOG: Initial getSession FINISHED. Loading = false.");
-            }
-
-        })
-        .catch(e => {
-            // TANGANI KEGAGALAN JARINGAN/API FATAL
-            console.error("FATAL ERROR: getSession FAILED (Network/API Key Error)", e);
-            session.value = null;
-            userRole.value = 'guest';
-            loading.value = false;
-            handleAuthRedirect(userRole.value, router.currentRoute.value);
-            console.log("LOG: getSession CATCH finished. Loading = false.");
-        });
+    // Memuat status auth dari Local Storage saat aplikasi dimulai
+    authStore.checkAuth();
 });
 
-// Watcher untuk menangani redirect navigasi (dibiarkan sama)
-router.afterEach((to) => {
-    if (!loading.value) { 
-        handleAuthRedirect(userRole.value, to);
-    }
-});
 </script>
 
 <template>
-    <div v-if="loading" class="full-page-loading">
-        <div class="spinner"></div>
-        Mengautentikasi pengguna dan mengambil role...
-    </div>
-    
-    <AppLayout 
-        v-else-if="$route.path !== '/login'" 
-        :userRole="userRole"
-    >
-        <RouterView />
-    </AppLayout>
-
-    <RouterView v-else />
+  <component :is="currentLayout">
+    <router-view />
+  </component>
 </template>
-
-<style scoped>
-/* (Styles tetap sama seperti sebelumnya) */
-.full-page-loading {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    font-size: 1.2em;
-    color: #aaaaaa; 
-    background-color: #121212; 
-}
-.spinner {
-    border: 4px solid rgba(255, 255, 255, 0.3);
-    border-top: 4px solid var(--color-primary, #3f51b5);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 15px;
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-</style>
