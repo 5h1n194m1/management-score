@@ -1,14 +1,20 @@
 <script setup>
+// import { defineProps } from 'vue';
 import { supabase } from '@/supabaseClient.js';
-import { useRouter } from 'vue-router';
-import { ref } from 'vue';
+import { useRouter, useRoute } from 'vue-router'; // <-- Tambahkan useRoute
 
+// Inisialisasi router dan route
 const router = useRouter();
+const route = useRoute(); // <-- Digunakan untuk mengakses nama rute
+
 const props = defineProps({
-    userRole: String // Menerima role user dari App.vue
+    userRole: {
+        type: String,
+        default: 'guest' 
+    }
 });
 
-// Menu Navigasi disesuaikan berdasarkan role
+// Menu navigasi sesuai dengan role
 const adminMenu = [
     { name: 'Dashboard Admin', path: '/admin', icon: '📈' },
     { name: 'Management Event', path: '/admin/events', icon: '🗓️' },
@@ -17,7 +23,7 @@ const adminMenu = [
 ];
 
 const operatorMenu = [
-    { name: 'Dashboard Operator', path: '/', icon: '🏠' },
+    { name: 'Dashboard Operator', path: '/dashboard', icon: '🏠' },
     { name: 'Input Score', path: '/input', icon: '✏️' },
 ];
 
@@ -25,23 +31,35 @@ const publicMenu = [
     { name: 'Dashboard Publik', path: '/', icon: '🏆' },
 ];
 
-const currentMenu = ref(props.userRole === 'admin' ? adminMenu : props.userRole === 'operator' ? operatorMenu : publicMenu);
+// Menentukan menu berdasarkan role
+const currentMenu = props.userRole === 'admin' 
+    ? adminMenu 
+    : (props.userRole === 'operator' ? operatorMenu : publicMenu);
 
-// Logout Handler
+// Logout handler
 const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        console.error("Logout Error:", error.message);
+        alert("Gagal logout. Silakan coba lagi.");
+    } else {
+        router.push('/login');
+    }
 };
+
+const getCurrentUserEmail = () => {
+    return supabase.auth.currentUser?.email || 'Authenticated User';
+}
 </script>
 
 <template>
-    <div class="app-container">
+    <div class="app-layout">
         <aside class="sidebar">
             <div class="logo-area">
                 <h2 class="logo-text">Score CMS</h2>
-                <small class="role-tag">{{ props.userRole ? props.userRole.toUpperCase() : 'PUBLIK' }}</small>
+                <small class="role-tag">{{ (props.userRole || 'guest').toUpperCase() }}</small>
             </div>
-            
+
             <nav class="main-nav">
                 <RouterLink 
                     v-for="item in currentMenu" 
@@ -53,8 +71,8 @@ const handleLogout = async () => {
                     {{ item.icon }} {{ item.name }}
                 </RouterLink>
             </nav>
-            
-            <div v-if="props.userRole" class="logout-section">
+
+            <div v-if="props.userRole !== 'guest'" class="logout-section">
                 <button @click="handleLogout" class="btn-logout">
                     🚪 Logout
                 </button>
@@ -64,47 +82,48 @@ const handleLogout = async () => {
         <main class="main-content">
             <header class="top-header">
                 <div class="header-left">
-                    <span class="page-title">{{ $route.name.toUpperCase().replace('-', ' ') }}</span>
+                    <span class="page-title">{{ (route.name ? route.name.toString().toUpperCase().replace(/-/g, ' ') : 'BERANDA') }}</span>
                 </div>
                 <div class="header-right">
-                    <span v-if="props.userRole" class="user-info">
-                        👤 {{ supabase.auth.currentUser?.email || 'Authenticated User' }}
+                    <span v-if="props.userRole !== 'guest'" class="user-info">
+                        👤 {{ getCurrentUserEmail() }}
                     </span>
                     <RouterLink v-else to="/login" class="btn-login">Login</RouterLink>
                 </div>
             </header>
-            
+
             <div class="content-wrapper">
-                <slot></slot>
-            </div>
+                <slot></slot> </div>
         </main>
     </div>
 </template>
 
 <style scoped>
 /* ========================================= */
-/* 🌙 DARK MODE LAYOUT VARIABLES */
-/* ========================================= */
+/* CSS Variables */
 :root {
-    --color-primary: #3f51b5; /* Biru/Indigo untuk Aksen */
-    --color-accent: #ffc107; /* Kuning untuk Tombol/Highlight */
-    --bg-main: #1e1e1e;      /* Latar Belakang Utama Gelap */
-    --bg-sidebar: #2b2b2b;   /* Background Sidebar Lebih Gelap */
-    --text-light: #e0e0e0;
-    --text-muted: #aaaaaa;
-    --border-light: #333333;
+    --color-primary: #3f51b5; /* Biru/Indigo */
+    --color-accent: #f0ad4e; /* Oranye/Kuning */
+    --bg-main: #121212; /* Latar Belakang Gelap */
+    --bg-sidebar: #1e1e1e; /* Sidebar Lebih Gelap */
+    --text-light: #e0e0e0; /* Teks terang */
+    --text-muted: #aaaaaa; /* Teks redup */
+    --border-light: #333333; /* Border */
+    --padding-base: 20px;
 }
+/* ========================================= */
 
-.app-container {
+.app-layout {
     display: flex;
     min-height: 100vh;
+    background-color: var(--bg-main);
 }
 
-/* -------------------- SIDEBAR -------------------- */
+/* Sidebar */
 .sidebar {
     width: 250px;
     background-color: var(--bg-sidebar);
-    padding: 20px 0;
+    padding: var(--padding-base) 0;
     display: flex;
     flex-direction: column;
     color: var(--text-light);
@@ -113,36 +132,31 @@ const handleLogout = async () => {
 }
 
 .logo-area {
-    text-align: center;
-    padding: 0 20px 30px;
+    padding: 0 var(--padding-base) var(--padding-base) var(--padding-base);
     border-bottom: 1px solid var(--border-light);
-    margin-bottom: 20px;
+    margin-bottom: var(--padding-base);
 }
 .logo-text {
-    color: var(--color-primary);
     margin-bottom: 5px;
+    color: white;
 }
 .role-tag {
-    color: var(--color-accent);
     font-size: 0.8em;
-    padding: 3px 8px;
-    border: 1px solid var(--color-accent);
-    border-radius: 4px;
+    color: var(--color-accent);
+    font-weight: bold;
+    display: block;
 }
 
 .main-nav {
-    flex-grow: 1;
-    padding: 0 10px;
+    flex-grow: 1; 
 }
 
 .nav-item {
     display: block;
-    padding: 12px 15px;
-    margin: 5px 0;
+    padding: 12px var(--padding-base); 
     color: var(--text-light);
     text-decoration: none;
-    border-radius: 6px;
-    transition: background-color 0.2s, color 0.2s;
+    transition: background-color 0.2s, border-left 0.2s;
 }
 
 .nav-item:hover {
@@ -152,29 +166,17 @@ const handleLogout = async () => {
 .nav-item.active {
     background-color: var(--color-primary);
     color: white;
-    font-weight: bold;
+    border-left: 5px solid var(--color-accent); 
+    padding-left: 15px; /* Mengimbangi border 5px */
 }
 
 .logout-section {
-    padding: 20px;
+    padding: var(--padding-base);
     border-top: 1px solid var(--border-light);
+    margin-top: auto; 
 }
 
-.btn-logout {
-    width: 100%;
-    background-color: #dc3545; /* Merah untuk logout */
-    color: white;
-    border: none;
-    padding: 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-.btn-logout:hover {
-    background-color: #c82333;
-}
-
-/* -------------------- MAIN CONTENT -------------------- */
+/* Main Content and Header */
 .main-content {
     flex-grow: 1;
     background-color: var(--bg-main);
@@ -184,39 +186,49 @@ const handleLogout = async () => {
 
 .top-header {
     padding: 15px 30px;
-    background-color: var(--bg-sidebar); /* Top header sama dengan sidebar */
+    background-color: var(--bg-sidebar); 
     border-bottom: 1px solid var(--border-light);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: var(--text-light);
 }
 
 .page-title {
-    font-size: 1.2em;
+    font-size: 1.5em;
+    color: var(--color-accent);
     font-weight: bold;
-    color: var(--color-accent); /* Judul Halaman di header */
 }
 
 .user-info {
     color: var(--text-muted);
 }
+
+.content-wrapper {
+    padding: 30px; 
+    flex-grow: 1;
+}
+
+/* Buttons */
 .btn-login {
     background-color: var(--color-primary);
     color: white;
     padding: 8px 15px;
     text-decoration: none;
     border-radius: 6px;
+}
+
+.btn-logout {
+    width: 100%;
+    background-color: #dc3545;
+    color: white;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
     transition: background-color 0.2s;
 }
-
-.content-wrapper {
-    padding: 30px;
-    flex-grow: 1;
-}
-
-/* Global Dark Mode Style (untuk body app secara umum) */
-body {
-    background-color: var(--bg-main); 
+.btn-logout:hover {
+    background-color: #c82333;
 }
 </style>

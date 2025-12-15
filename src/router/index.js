@@ -1,52 +1,38 @@
+// C:\management-score\src\router\index.js
+
 import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '../views/DashboardView.vue'
 import LoginView from '../views/LoginView.vue'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
-import { supabase } from '@/supabaseClient.js'; // Pastikan alias @ di sini benar
+// Hapus import { supabase } karena kita tidak lagi menggunakan Navigation Guard
 
 const router = createRouter({
-  // Gunakan mode history (URL bersih tanpa hash #)
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [
-    {
-      path: '/',
-      name: 'dashboard',
-      component: DashboardView
-    },
-    {
-      path: '/login',
-      name: 'login',
-      component: LoginView
-    },
-    {
-      path: '/admin', // Rute baru untuk Admin Dashboard
-      name: 'admin-dashboard',
-      component: AdminDashboardView,
-      meta: { requiresAuth: true } // Menandai rute ini memerlukan login
-    }
-  ]
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: '/',
+      name: 'dashboard',
+      component: DashboardView,
+      meta: { requiresAuth: true } // Pertahankan meta tag untuk keperluan App.vue
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView,
+      meta: { requiresAuth: false } // Secara eksplisit menandai login tidak butuh auth
+    },
+    {
+      path: '/admin', 
+      name: 'admin-dashboard',
+      component: AdminDashboardView,
+      meta: { requiresAuth: true, role: 'admin' } // Menambahkan meta role (Opsional, tapi berguna)
+    }
+    // Tambahkan rute untuk Operator di sini jika diperlukan, misal:
+    // { path: '/dashboard', name: 'operator-dashboard', component: DashboardView, meta: { requiresAuth: true } },
+  ]
 })
 
-/**
- * Navigation Guard: Memeriksa autentikasi sebelum setiap rute
- * Jika rute memerlukan login (meta: { requiresAuth: true }) dan user belum login,
- * user akan diarahkan ke halaman login.
- */
-router.beforeEach(async (to, from, next) => {
-    // Ambil sesi user saat ini dari Supabase
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    // Cek apakah rute tujuan membutuhkan autentikasi (seperti '/admin')
-    if (to.meta.requiresAuth && !session) {
-      // Jika butuh login TAPI user belum login, arahkan ke halaman login
-      next('/login');
-    } else if (to.name === 'login' && session) {
-      // Jika user sudah login TAPI mencoba mengakses halaman login, arahkan ke dashboard
-      next('/');
-    } else {
-      // Lanjutkan ke rute tujuan
-      next();
-    }
-})
+// HAPUS Navigation Guard router.beforeEach() ENTIRELY!
+// Logic autentikasi dan role sudah ditangani secara sentral di App.vue
 
-export default router
+export default router;
