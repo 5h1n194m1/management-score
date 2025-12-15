@@ -1,5 +1,4 @@
 import { fileURLToPath, URL } from 'node:url' // Import ini penting untuk Node Path
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
@@ -10,9 +9,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      // DEFINISI ALIAS BARU DI SINI
       '@': fileURLToPath(new URL('./src', import.meta.url)) 
-      // Ini memberitahu Vite: Kapanpun kamu melihat '@/', arahkan ke folder './src'
     }
   }
 })
