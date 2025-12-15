@@ -22,6 +22,11 @@
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
     <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
   </div>
+  <div class="mt-3">
+    <RouterLink to="/" class="inline-block w-full text-center px-3 py-2 bg-slate-700 text-white rounded">
+      Home
+    </RouterLink>
+  </div>
 </template>
 
 <script setup>

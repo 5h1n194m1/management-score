@@ -21,6 +21,13 @@ export const setEventStatus = async (eventId, status) => {
     .select()
 }
 
+export const createEvent = async (adminId, title, status = 'draft') => {
+  return supabase
+    .from('events')
+    .insert({ admin_id: adminId, title, status })
+    .select()
+}
+
 export const getEventSettings = async (eventId) => {
   return supabase
     .from('event_settings')
@@ -52,12 +59,62 @@ export const togglePotHidden = async (potId, isHidden) => {
     .select()
 }
 
+export const createPot = async (eventId, name, display_order = 1) => {
+  return supabase
+    .from('pots')
+    .insert({ event_id: eventId, name, display_order })
+    .select()
+}
+
+export const deletePot = async (potId) => {
+  return supabase
+    .from('pots')
+    .delete()
+    .eq('id', potId)
+}
+
 export const getTeamsByEvent = async (eventId) => {
   return supabase
     .from('teams')
     .select('id, name, members')
     .eq('event_id', eventId)
     .order('name', { ascending: true })
+}
+
+export const getTeamsByPot = async (potId) => {
+  return supabase
+    .from('team_pot_mapping')
+    .select('team_id, is_finalist, teams(id, name, members)')
+    .eq('pot_id', potId)
+}
+
+export const addTeamToPot = async (teamId, potId) => {
+  return supabase
+    .from('team_pot_mapping')
+    .upsert({ team_id: teamId, pot_id: potId }, { onConflict: 'team_id,pot_id' })
+    .select()
+}
+
+export const removeTeamFromPot = async (teamId, potId) => {
+  return supabase
+    .from('team_pot_mapping')
+    .delete()
+    .eq('team_id', teamId)
+    .eq('pot_id', potId)
+}
+
+export const createTeam = async (eventId, name, members = []) => {
+  return supabase
+    .from('teams')
+    .insert({ event_id: eventId, name, members })
+    .select()
+}
+
+export const deleteTeam = async (teamId) => {
+  return supabase
+    .from('teams')
+    .delete()
+    .eq('id', teamId)
 }
 
 export const getGamesByPot = async (potId) => {
@@ -82,6 +139,21 @@ export const deleteGame = async (gameId) => {
     .eq('id', gameId)
 }
 
+export const uploadGameScreenshot = async (eventId, gameId, file) => {
+  const ext = file.name.split('.').pop()
+  const path = `event/${eventId}/game_${gameId}/${crypto.randomUUID()}.${ext}`
+  const { data: up, error: upErr } = await supabase.storage.from('screenshots').upload(path, file, {
+    cacheControl: '3600',
+    upsert: false
+  })
+  if (upErr) return { data: null, error: upErr }
+  const { data: urlData } = await supabase.storage.from('screenshots').getPublicUrl(up.path)
+  const publicUrl = urlData?.publicUrl || null
+  if (!publicUrl) return { data: null, error: new Error('Gagal mendapatkan URL publik') }
+  const { data, error } = await supabase.from('games').update({ screenshot_url: publicUrl }).eq('id', gameId).select()
+  return { data, error }
+}
+
 export const upsertRawScore = async ({ game_id, team_id, rank, p_rank, kill }) => {
   return supabase
     .from('raw_scores')
@@ -97,6 +169,13 @@ export const getLeaderboardByPot = async (potId) => {
     .order('total_points', { ascending: false })
     .order('total_kill', { ascending: false })
     .order('team_name', { ascending: true })
+}
+
+export const getRawScoresByPot = async (potId) => {
+  return supabase
+    .from('raw_scores')
+    .select('game_id, team_id, rank, p_rank, kill, teams(name), games(game_number)')
+    .in('game_id', (await supabase.from('games').select('id').eq('pot_id', potId)).data?.map(g => g.id) || [])
 }
 
 export const getPointMapping = async (eventId) => {

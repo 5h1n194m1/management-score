@@ -3,11 +3,15 @@ import { ref, onMounted, computed } from 'vue';
 import { supabase } from '@/supabaseClient.js';
 import MetricCard from '@/components/ui/MetricCard.vue'
 import SectionCard from '@/components/ui/SectionCard.vue'
+import { createEvent } from '@/services/db.js'
 
 const events = ref([]);
 const loading = ref(true);
 const error = ref(null);
 const userId = ref(null);
+const adding = ref(false)
+const newTitle = ref('')
+const newStatus = ref('draft')
 
 const fetchAllEvents = async () => {
     loading.value = true;
@@ -39,6 +43,24 @@ const fetchAllEvents = async () => {
     }
 };
 
+const addEvent = async () => {
+    if (!newTitle.value.trim()) return
+    adding.value = true
+    error.value = null
+    try {
+        const { data, error: insErr } = await createEvent(userId.value, newTitle.value.trim(), newStatus.value)
+        if (insErr) {
+            error.value = insErr.message || 'Gagal menambah event'
+        } else {
+            newTitle.value = ''
+            newStatus.value = 'draft'
+            await fetchAllEvents()
+        }
+    } finally {
+        adding.value = false
+    }
+}
+
 // Hitungan Komputasi untuk Metric Cards Admin
 const liveEventsCount = computed(() => events.value.filter(e => e.status === 'live').length);
 const draftEventsCount = computed(() => events.value.filter(e => e.status === 'draft').length);
@@ -67,6 +89,23 @@ onMounted(() => {
       </div>
 
       <SectionCard title="Management Event">
+        <div class="mb-4 flex items-end gap-3">
+          <div class="flex-1">
+            <label class="block text-sm text-slate-600 mb-1">Judul Event</label>
+            <input v-model="newTitle" type="text" class="w-full border rounded px-3 py-2" placeholder="Masukkan judul event" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">Status</label>
+            <select v-model="newStatus" class="border rounded px-3 py-2">
+              <option value="draft">draft</option>
+              <option value="live">live</option>
+              <option value="completed">completed</option>
+            </select>
+          </div>
+          <button @click="addEvent" :disabled="adding" class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+            {{ adding ? 'Menambah...' : 'Tambah Event' }}
+          </button>
+        </div>
         <div class="overflow-x-auto animate-fade-in">
           <table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50">

@@ -1,7 +1,7 @@
 // src/main.js
 
 // 1. Impor CSS (Path yang benar)
-import './style.css' 
+import '@/style.css' 
 
 // 2. Impor Core Vue dan Pinia
 import { createApp } from 'vue'

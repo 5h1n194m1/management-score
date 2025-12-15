@@ -2,14 +2,11 @@
 import { supabase } from '@/supabaseClient.js'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/stores/auth'
+import { ref, onMounted } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuth()
-
-const props = defineProps({
-  userRole: { type: String, default: 'guest' }
-})
 
 const adminMenu = [
   { name: 'Dashboard Admin', path: '/admin', icon: '📈' }
@@ -24,27 +21,51 @@ const publicMenu = [
   { name: 'Dashboard Publik', path: '/', icon: '🏆' }
 ]
 
-const currentMenu = props.userRole === 'admin'
+const currentMenu = authStore.userRole === 'admin'
   ? adminMenu
-  : (props.userRole === 'operator' ? operatorMenu : publicMenu)
+  : (authStore.userRole === 'operator' ? operatorMenu : publicMenu)
+
+const collapsed = ref(false)
 
 const handleLogout = async () => {
   const { error } = await supabase.auth.signOut()
-  if (!error) router.push('/login')
+  if (!error) {
+    authStore.clearAuth()
+    router.push('/login')
+  }
 }
 
 const userEmail = () => authStore.userData?.email || ''
+
+const roleLabel = () => (authStore.userRole === 'admin' ? 'Administrator' : (authStore.userRole || 'guest'))
+
+const isDark = ref(false)
+const applyTheme = (dark) => {
+  isDark.value = dark
+  document.documentElement.classList.toggle('dark', dark)
+  localStorage.setItem('theme', dark ? 'dark' : 'light')
+}
+const toggleTheme = () => applyTheme(!isDark.value)
+onMounted(() => {
+  const saved = localStorage.getItem('theme')
+  if (saved === 'dark' || saved === 'light') {
+    applyTheme(saved === 'dark')
+  } else {
+    const prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    applyTheme(prefers)
+  }
+})
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 flex">
-    <aside class="w-72 bg-white border-r border-slate-200 flex flex-col">
+  <div class="min-h-screen bg-slate-50 dark:bg-[#121212] flex">
+    <aside :class="[collapsed ? 'w-20' : 'w-72', 'bg-white dark:bg-[#1a1a1a] border-r border-slate-200 dark:border-slate-700 flex flex-col transition-[width] duration-300']">
       <div class="px-6 py-5 border-b border-slate-200">
         <div class="flex items-center gap-3">
           <div class="h-10 w-10 rounded bg-gradient-to-br from-indigo-600 to-purple-600"></div>
           <div>
-            <div class="text-slate-900 font-bold">Management Score</div>
-            <div class="text-xs text-slate-500">{{ (props.userRole || 'guest').toUpperCase() }}</div>
+            <div class="text-slate-900 dark:text-white font-bold">Management Score</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">{{ roleLabel().toUpperCase() }}</div>
           </div>
         </div>
       </div>
@@ -53,17 +74,17 @@ const userEmail = () => authStore.userData?.email || ''
           v-for="item in currentMenu"
           :key="item.name"
           :to="item.path"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100 transition-all duration-200"
-          active-class="bg-slate-100 text-slate-900"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
+          active-class="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
         >
           <span>{{ item.icon }}</span>
           <span class="font-medium">{{ item.name }}</span>
         </RouterLink>
       </nav>
-      <div class="px-6 py-4 border-t border-slate-200">
-        <div class="text-sm text-slate-500 mb-2 truncate">{{ userEmail() }}</div>
+      <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+        <div class="text-sm text-slate-500 dark:text-slate-400 mb-2 truncate">{{ userEmail() }}</div>
         <button
-          v-if="props.userRole !== 'guest'"
+          v-if="authStore.isLoggedIn"
           @click="handleLogout"
           class="w-full px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
         >
@@ -75,15 +96,22 @@ const userEmail = () => authStore.userData?.email || ''
       </div>
     </aside>
     <main class="flex-1 flex flex-col">
-      <header class="bg-white border-b border-slate-200">
+      <header class="bg-white dark:bg-[#1a1a1a] border-b border-slate-200 dark:border-slate-700">
         <div class="px-6 py-4 flex items-center justify-between">
-          <div class="text-lg font-semibold text-slate-900">
+          <div class="text-lg font-semibold text-slate-900 dark:text-white">
             {{ (route.name ? route.name.toString().toUpperCase().replace(/-/g, ' ') : 'DASHBOARD') }}
           </div>
-          <div class="flex items-center gap-2"></div>
+          <div class="flex items-center gap-2">
+            <button @click="collapsed = !collapsed" class="px-3 py-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition duration-300">
+              {{ collapsed ? 'Expand' : 'Collapse' }}
+            </button>
+            <button @click="toggleTheme" class="px-3 py-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition duration-300">
+              {{ isDark ? 'Light' : 'Dark' }}
+            </button>
+          </div>
         </div>
       </header>
-      <div class="p-6 animate-fade-in">
+      <div class="p-6 animate-fade-in text-slate-900 dark:text-slate-200">
         <slot></slot>
       </div>
     </main>
