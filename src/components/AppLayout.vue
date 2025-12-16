@@ -4,10 +4,12 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/stores/auth'
 import { ref, onMounted, computed } from 'vue'
 import { getProfileTheme, upsertProfileTheme } from '@/services/db.js'
+import { useThemeStore } from '@/stores/theme' // Import theme store
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuth()
+const themeStore = useThemeStore() // Inisialisasi theme store 
 
 const adminMenu = [
   { name: 'Dashboard Admin', path: '/admin', icon: '📈' }
