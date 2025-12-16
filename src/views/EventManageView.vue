@@ -773,8 +773,8 @@ watch(selectedPotId, async () => {
     <div class="col-span-12"></div>
     <div class="col-span-12">
       <SectionCard title="Fitur Utama">
-        <div class="p-5 bg-white rounded w-full" style="box-shadow:0 2px 4px rgba(0,0,0,0.1)">
-          <div class="flex flex-col md:flex-row items-center justify-between gap-3 mb-4 w-full">
+        <div class="bg-white rounded card-fill card-padding" style="box-shadow:0 2px 4px rgba(0,0,0,0.1)">
+          <div class="card-header-flex stack-sm mb-4">
             <button aria-label="Edit fitur" class="px-4 py-2 rounded text-white" style="background-color:#007bff" @click="showAddFeature = !showAddFeature">Edit</button>
             <button aria-label="Tambah fitur" class="px-4 py-2 rounded text-white" style="background-color:#28a745" @click="showAddFeature = true">Tambah Fitur</button>
             <button aria-label="Refresh fitur" class="px-4 py-2 rounded text-white" style="background-color:#6c757d" @click="refreshFeatures">Refresh</button>
@@ -790,7 +790,7 @@ watch(selectedPotId, async () => {
             </div>
           </div>
           <div v-if="showAddFeature" class="mb-4">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 card-content-fill">
               <input v-model="newFeatureName" class="border rounded px-3 py-2" placeholder="Nama fitur" />
               <input v-model="newFeatureDesc" class="border rounded px-3 py-2" placeholder="Deskripsi singkat" />
               <select v-model="newFeatureStatus" class="border rounded px-3 py-2">
@@ -798,13 +798,13 @@ watch(selectedPotId, async () => {
                 <option :value="false">Tidak Aktif</option>
               </select>
             </div>
-            <div class="mt-3 flex items-center justify-between gap-2 w-full">
+            <div class="mt-3 flex items-center justify-between gap-2 card-content-fill">
               <button aria-label="Simpan fitur baru" class="px-4 py-2 rounded text-white" style="background-color:#28a745" @click="addFeature">Simpan</button>
               <button aria-label="Batal tambah fitur" class="px-4 py-2 rounded text-white" style="background-color:#6c757d" @click="showAddFeature=false">Batal</button>
             </div>
           </div>
-          <div class="overflow-x-auto w-full">
-            <table class="w-full" style="background:#ffffff;border-collapse:collapse">
+          <div class="table-responsive">
+            <table class="table-card" style="background:#ffffff">
               <thead>
                 <tr style="background:#e3f2fd;color:#212529">
                   <th style="width:25%;border:1px solid #e0e0e0;padding:12px;text-align:left">
@@ -829,7 +829,7 @@ watch(selectedPotId, async () => {
                 </tr>
               </tbody>
             </table>
-            <div class="flex items-center justify-between mt-3 w-full">
+            <div class="flex items-center justify-between mt-3 card-content-fill">
               <div class="text-sm" style="color:#212529">Halaman {{ featurePage }}</div>
               <div class="flex items-center gap-2">
                 <button aria-label="Halaman sebelumnya" class="px-3 py-1 rounded" style="background:#e3f2fd;color:#212529" @click="featurePage = Math.max(1, featurePage - 1)">Prev</button>
@@ -841,9 +841,9 @@ watch(selectedPotId, async () => {
       </SectionCard>
     </div>
     <div class="col-span-12" style="margin-top:40px">
-      <div class="bg-white rounded w-full p-5" style="box-shadow:0 2px 4px rgba(0,0,0,0.1)">
-        <div class="overflow-x-auto w-full">
-          <table class="w-full" style="background:#ffffff;border-collapse:collapse">
+      <div class="bg-white rounded card-fill card-padding" style="box-shadow:0 2px 4px rgba(0,0,0,0.1)">
+        <div class="table-responsive">
+          <table class="table-card" style="background:#ffffff">
             <thead>
               <tr style="background:#bbdefb;color:#212529">
                 <th style="width:40%;border:1px solid #e0e0e0;padding:12px;text-align:left">Kriteria Penilaian</th>
