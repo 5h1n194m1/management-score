@@ -1,167 +1,104 @@
 <script setup>
-import { supabase } from '@/supabaseClient.js'
-import { useRouter, useRoute } from 'vue-router'
-import { useAuth } from '@/stores/auth'
-import { ref, onMounted, computed } from 'vue'
-import { getProfileTheme, upsertProfileTheme } from '@/services/db.js'
-import { useThemeStore } from '@/stores/theme' // Import theme store
+import { ref } from 'vue';
+import { useAuth } from '@/stores/auth';
+import { useRouter } from 'vue-router';
+import { useThemeStore } from '@/stores/theme'; 
 
-const router = useRouter()
-const route = useRoute()
-const authStore = useAuth()
-const themeStore = useThemeStore() // Inisialisasi theme store 
+const authStore = useAuth();
+const router = useRouter();
+const themeStore = useThemeStore(); 
 
-const adminMenu = [
-  { name: 'Dashboard Admin', path: '/admin', icon: '📈' }
-]
+// State untuk mengontrol visibilitas sidebar
+const isSidebarOpen = ref(true);
 
-const operatorMenu = [
-  { name: 'Dashboard', path: '/', icon: '🏠' },
-  { name: 'Recap', path: '/recap/:eventId', icon: '📄' }
-]
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value;
+};
 
-const publicMenu = [
-  { name: 'Dashboard Publik', path: '/', icon: '🏆' }
-]
-
-const currentMenuBase = computed(() => {
-  return authStore.userRole === 'admin'
-    ? adminMenu
-    : (authStore.userRole === 'operator' ? operatorMenu : publicMenu)
-})
-const menuItems = computed(() => {
-  const id = route.params.id || route.params.eventId
-  return currentMenuBase.value.map(item => {
-    if (item.path.startsWith('/recap/:')) {
-      return { ...item, path: id ? `/recap/${id}` : '/public-dashboard', disabled: !id }
-    }
-    return item
-  })
-})
-
-const collapsed = ref(false)
-const isFullMode = ref(false)
-const syncFullModeFromStorage = () => {
-  isFullMode.value = localStorage.getItem('full_screen_mode') === '1'
-}
-onMounted(() => {
-  syncFullModeFromStorage()
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'full_screen_mode') {
-      syncFullModeFromStorage()
-    }
-  })
-  window.addEventListener('full_screen_mode_change', (e) => {
-    isFullMode.value = !!(e?.detail)
-  })
-})
-
-const handleLogout = async () => {
-  const { error } = await supabase.auth.signOut()
-  if (!error) {
-    authStore.clearAuth()
-    router.push('/login')
-  }
-}
-
-const userEmail = () => authStore.userData?.email || ''
-
-const roleLabel = () => (authStore.userRole === 'admin' ? 'Administrator' : (authStore.userRole || 'guest'))
-
-const isDark = ref(false)
-const applyTheme = (dark) => {
-  isDark.value = dark
-  document.documentElement.classList.toggle('dark', dark)
-  localStorage.setItem('theme', dark ? 'dark' : 'light')
-  const uid = authStore.userData?.id
-  if (uid) {
-    // Sinkronisasi ke profil (jika kolom theme tersedia)
-    upsertProfileTheme(uid, dark ? 'dark' : 'light').catch(() => {})
-  }
-}
-const toggleTheme = () => applyTheme(!isDark.value)
-onMounted(() => {
-  const uid = authStore.userData?.id
-  const saved = localStorage.getItem('theme')
-  const prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-  const initial = saved === 'dark' ? true : saved === 'light' ? false : prefers
-  applyTheme(initial)
-  if (uid) {
-    getProfileTheme(uid).then(({ data }) => {
-      if (data?.theme === 'dark' || data?.theme === 'light') {
-        applyTheme(data.theme === 'dark')
-      }
-    }).catch(() => {})
-  }
-})
+const handleLogout = () => {
+  authStore.signOut();
+  router.push('/login'); 
+};
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-[#121212] flex">
-    <aside v-if="!isFullMode" :class="[collapsed ? 'w-20' : 'w-72', 'bg-white dark:bg-[#1a1a1a] border-r border-slate-200 dark:border-slate-700 flex flex-col transition-[width] duration-300']">
-      <div class="px-6 py-5 border-b border-slate-200">
-        <div class="flex items-center gap-3">
-          <div class="h-10 w-10 rounded bg-gradient-to-br from-indigo-600 to-purple-600"></div>
-          <div>
-            <div class="text-slate-900 dark:text-white font-bold">Management Score</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400">{{ roleLabel().toUpperCase() }}</div>
-          </div>
-        </div>
+  <div class="min-h-screen flex bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+    
+    <aside 
+      class="flex-shrink-0 transition-all duration-300 ease-in-out 
+             bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700
+             fixed md:static z-30" 
+      :class="{ 
+        'w-64': isSidebarOpen, 
+        'w-0 overflow-hidden md:w-0': !isSidebarOpen,
+        'hidden md:block': isSidebarOpen // Pastikan hanya terlihat jika terbuka di desktop
+      }"
+    >
+      <div class="p-4 text-center border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-xl font-bold text-indigo-600 dark:text-indigo-400">Management Score</h2>
       </div>
-      <nav class="flex-1 px-3 py-4 space-y-1 animate-fade-in">
-        <RouterLink
-          v-for="item in menuItems"
-          :key="item.name"
-          :to="item.path"
-          :aria-disabled="item.disabled ? 'true' : 'false'"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200
-                 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800
-                 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-          active-class="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
+      <nav class="p-4 space-y-2">
+        <router-link 
+          to="/" 
+          class="block p-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 transition duration-150"
+          :class="{'bg-indigo-50 dark:bg-gray-700 font-semibold text-indigo-700 dark:text-indigo-400': $route.path === '/'}"
         >
-          <span>{{ item.icon }}</span>
-          <span class="font-medium" :class="item.disabled ? 'opacity-60' : ''">{{ item.name }}</span>
-        </RouterLink>
+            Dashboard Operator
+        </router-link>
+        <router-link 
+          to="/manage-event" 
+          class="block p-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-indigo-100 dark:hover:bg-gray-700 transition duration-150"
+          :class="{'bg-indigo-50 dark:bg-gray-700 font-semibold text-indigo-700 dark:text-indigo-400': $route.path === '/manage-event'}"
+        >
+            Manajemen Event
+        </router-link>
       </nav>
-      <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-        <div class="text-sm text-slate-500 dark:text-slate-400 mb-2 truncate">{{ userEmail() }}</div>
-        <div class="mb-3 flex items-center justify-between">
-          <span class="text-xs text-slate-600 dark:text-slate-300">Tema</span>
-          <button
-            @click="toggleTheme"
-            class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition duration-300"
-          >
-            {{ isDark ? 'Dark' : 'Light' }}
-          </button>
-        </div>
-        <button
-          v-if="authStore.isLoggedIn"
-          @click="handleLogout"
-          class="w-full px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-        >
-          Logout
-        </button>
-        <RouterLink v-else to="/login" class="w-full inline-block text-center px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-          Login
-        </RouterLink>
-      </div>
     </aside>
-    <main class="flex-1 flex flex-col">
-      <header v-if="!isFullMode" class="bg-white dark:bg-[#1a1a1a] border-b border-slate-200 dark:border-slate-700">
-        <div class="px-6 py-4 flex items-center justify-between">
-          <div class="text-lg font-semibold text-slate-900 dark:text-white">
-            {{ (route.name ? route.name.toString().toUpperCase().replace(/-/g, ' ') : 'DASHBOARD') }}
+
+    <div 
+      class="flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+    >
+      <header class="bg-white dark:bg-gray-800 shadow-md border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div class="max-w-full mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+          
+          <div class="flex items-center space-x-4">
+              <button @click="toggleSidebar" class="p-2 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-150" title="Toggle Sidebar">
+                  
+                  <svg v-if="!isSidebarOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                  
+                  <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7 7-7m4 14l7-7-7-7"></path></svg>
+              </button>
+              
+              <h1 class="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">
+                Dashboard {{ authStore.userRole?.toUpperCase() || 'Operator' }}
+              </h1>
           </div>
-          <div class="flex items-center gap-2">
-            <button @click="collapsed = !collapsed" class="px-3 py-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition duration-300">
-              {{ collapsed ? 'Expand' : 'Collapse' }}
+
+
+          <div class="flex items-center space-x-4">
+            <button 
+                @click="themeStore.toggleDark" 
+                class="p-2 rounded-full transition duration-200"
+                :class="themeStore.isDark ? 'text-yellow-400 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-200'"
+                title="Toggle Dark/Light Mode"
+            >
+                <svg v-if="themeStore.isDark" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a9 9 0 00-8.631 7.15c.015.066-.022.13-.086.155A7.001 7.001 0 0012 21a9 9 0 008.631-7.15c-.015-.066.022-.13.086-.155A7.001 7.001 0 0012 3z"/></svg>
+                <svg v-else class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm8.707 3.707a1 1 0 00-1.414 0L17.586 6.5a1 1 0 101.414 1.414l1.707-1.707a1 1 0 000-1.414zM21 12h-1a1 1 0 110-2h1a1 1 0 110 2zM3 12h1a1 1 0 110-2H3a1 1 0 110 2zm16.707 13.293a1 1 0 00-1.414 0L17.586 16.5a1 1 0 101.414 1.414l1.707-1.707a1 1 0 000-1.414zM5.293 17.707a1 1 0 001.414 0L6.5 17.586a1 1 0 10-1.414-1.414l-1.707 1.707a1 1 0 000 1.414zM12 21a1 1 0 01-1-1v-1a1 1 0 112 0v1a1 1 0 01-1 1z"/></svg>
+            </button>
+            
+            <button 
+              @click="handleLogout" 
+              class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-150 text-sm font-semibold shadow"
+            >
+              Logout
             </button>
           </div>
         </div>
       </header>
-      <div class="p-6 animate-fade-in text-slate-900 dark:text-slate-200">
-        <slot></slot>
-      </div>
-    </main>
+
+      <main class="flex-1 overflow-x-hidden overflow-y-auto">
+        <slot />
+      </main>
+    </div>
   </div>
 </template>

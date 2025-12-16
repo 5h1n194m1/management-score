@@ -1,25 +1,15 @@
+// tailwind.config.js
+
 /** @type {import('tailwindcss').Config} */
 export default {
-  content:[
+  content: [
     "./index.html",
-    "./src/**/*.{js,jsx,ts,tsx}",
+    "./src/**/*.{vue,js,ts,jsx,tsx}", 
   ],
-  darkMode: 'class',
+  // ✅ PERBAIKAN KRITIS: Aktifkan dark mode berbasis class
+  darkMode: 'class', 
   theme: {
-    extend: {
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif'],
-      },
-      colors: {
-        brand: {
-          primary: '#4f46e5',
-          secondary: '#0ea5e9',
-          accent: '#10b981',
-          warn: '#f59e0b',
-          danger: '#ef4444',
-        },
-      },
-    },
+    extend: {},
   },
   plugins: [],
 }
