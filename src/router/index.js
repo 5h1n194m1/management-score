@@ -56,6 +56,11 @@ const router = createRouter({
       name: 'recap',
       component: RecapView,
       meta: { requiresAuth: false, layout: 'default' }
+    },
+    // 7. Fallback 404 -> redirect ke landing publik
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/public-dashboard'
     }
   ]
 })

@@ -13,6 +13,9 @@ const events = ref([])
 const adding = ref(false)
 const newTitle = ref('')
 const newStatus = ref('draft')
+const newDateTime = ref('')
+const newDescription = ref('')
+const newCategory = ref('')
 const userId = ref(null)
 const displayRole = () => (authStore.userRole === 'admin' ? 'Administrator' : authStore.userRole.toUpperCase())
 
@@ -48,10 +51,20 @@ const addEvent = async () => {
   if (!newTitle.value.trim()) return
   adding.value = true
   error.value = null
-  const { data, error: insErr } = await createEvent(userId.value, newTitle.value.trim(), newStatus.value)
+  const { error: insErr } = await createEvent(
+    userId.value,
+    newTitle.value.trim(),
+    newStatus.value,
+    newDateTime.value ? new Date(newDateTime.value).toISOString() : null,
+    newDescription.value.trim() || null,
+    newCategory.value.trim() || null
+  )
   if (!insErr) {
     newTitle.value = ''
     newStatus.value = 'draft'
+    newDateTime.value = ''
+    newDescription.value = ''
+    newCategory.value = ''
     await fetchEvents()
   } else {
     error.value = insErr.message || 'Gagal menambah event'
@@ -85,10 +98,10 @@ const addEvent = async () => {
     
     <div v-if="isLoading" class="p-8 bg-white rounded-xl shadow text-center text-indigo-600">Memuat data...</div>
     <div v-else class="bg-white p-6 rounded-xl shadow border border-slate-200 animate-fade-in">
-      <div class="mb-4 flex items-end gap-3" v-if="authStore.userRole==='admin'">
+      <div class="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3" v-if="authStore.userRole==='admin'">
         <div class="flex-1">
-          <label class="block text-sm text-slate-600 mb-1">Judul Event</label>
-          <input v-model="newTitle" type="text" class="w-full border rounded px-3 py-2" placeholder="Masukkan judul event" />
+          <label class="block text-sm text-slate-600 mb-1">Nama Event</label>
+          <input v-model="newTitle" type="text" class="w-full border rounded px-3 py-2" placeholder="Masukkan nama event" />
         </div>
         <div>
           <label class="block text-sm text-slate-600 mb-1">Status</label>
@@ -98,9 +111,23 @@ const addEvent = async () => {
             <option value="completed">completed</option>
           </select>
         </div>
-        <button @click="addEvent" :disabled="adding" class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-          {{ adding ? 'Menambah...' : 'Tambah Event' }}
-        </button>
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">Tanggal & Waktu</label>
+          <input v-model="newDateTime" type="datetime-local" class="w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">Kategori</label>
+          <input v-model="newCategory" type="text" class="w-full border rounded px-3 py-2" placeholder="Masukkan kategori" />
+        </div>
+        <div class="md:col-span-4">
+          <label class="block text-sm text-slate-600 mb-1">Deskripsi</label>
+          <textarea v-model="newDescription" rows="3" class="w-full border rounded px-3 py-2" placeholder="Deskripsi event"></textarea>
+        </div>
+        <div class="md:col-span-4 flex items-center gap-2">
+          <button @click="addEvent" :disabled="adding" class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 active:scale-95 transition">
+            {{ adding ? 'Menambah...' : 'Submit' }}
+          </button>
+        </div>
       </div>
       <div v-if="error" class="mb-3 text-rose-600">{{ error }}</div>
       <div class="overflow-x-auto animate-slide-up">
@@ -111,7 +138,7 @@ const addEvent = async () => {
               <th class="px-3 py-2 text-left text-slate-600">Judul</th>
               <th class="px-3 py-2 text-left text-slate-600">Status</th>
               <th class="px-3 py-2 text-left text-slate-600">Dibuat</th>
-              <th class="px-3 py-2 text-right text-slate-600">Aksi</th>
+              <th v-if="authStore.isLoggedIn && (authStore.userRole==='admin' || authStore.userRole==='operator')" class="px-3 py-2 text-right text-slate-600">Aksi</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-slate-100">
@@ -131,7 +158,8 @@ const addEvent = async () => {
               </td>
               <td class="px-3 py-2">{{ new Date(e.created_at).toLocaleDateString('id-ID') }}</td>
               <td class="px-3 py-2 text-right">
-                <RouterLink :to="`/events/${e.id}`" class="text-indigo-600 hover:text-indigo-800 mr-3">Kelola</RouterLink>
+                <RouterLink :to="`/recap/${e.id}`" class="text-slate-700 hover:text-slate-900 mr-3">Lihat</RouterLink>
+                <RouterLink v-if="authStore.isLoggedIn && (authStore.userRole==='admin' || authStore.userRole==='operator')" :to="`/events/${e.id}`" class="text-indigo-600 hover:text-indigo-800">Kelola</RouterLink>
               </td>
             </tr>
           </tbody>

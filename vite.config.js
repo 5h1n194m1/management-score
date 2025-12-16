@@ -9,6 +9,11 @@ export default defineConfig({
   plugins: [
     vue(),
   ],
+  server: {
+    hmr: {
+      overlay: false
+    }
+  },
   resolve: { 
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)) 

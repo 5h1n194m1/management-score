@@ -2,7 +2,7 @@
 import { supabase } from '@/supabaseClient.js'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/stores/auth'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { getProfileTheme, upsertProfileTheme } from '@/services/db.js'
 
 const router = useRouter()
@@ -22,11 +22,37 @@ const publicMenu = [
   { name: 'Dashboard Publik', path: '/', icon: '🏆' }
 ]
 
-const currentMenu = authStore.userRole === 'admin'
-  ? adminMenu
-  : (authStore.userRole === 'operator' ? operatorMenu : publicMenu)
+const currentMenuBase = computed(() => {
+  return authStore.userRole === 'admin'
+    ? adminMenu
+    : (authStore.userRole === 'operator' ? operatorMenu : publicMenu)
+})
+const menuItems = computed(() => {
+  const id = route.params.id || route.params.eventId
+  return currentMenuBase.value.map(item => {
+    if (item.path.startsWith('/recap/:')) {
+      return { ...item, path: id ? `/recap/${id}` : '/public-dashboard', disabled: !id }
+    }
+    return item
+  })
+})
 
 const collapsed = ref(false)
+const isFullMode = ref(false)
+const syncFullModeFromStorage = () => {
+  isFullMode.value = localStorage.getItem('full_screen_mode') === '1'
+}
+onMounted(() => {
+  syncFullModeFromStorage()
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'full_screen_mode') {
+      syncFullModeFromStorage()
+    }
+  })
+  window.addEventListener('full_screen_mode_change', (e) => {
+    isFullMode.value = !!(e?.detail)
+  })
+})
 
 const handleLogout = async () => {
   const { error } = await supabase.auth.signOut()
@@ -70,7 +96,7 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-[#121212] flex">
-    <aside :class="[collapsed ? 'w-20' : 'w-72', 'bg-white dark:bg-[#1a1a1a] border-r border-slate-200 dark:border-slate-700 flex flex-col transition-[width] duration-300']">
+    <aside v-if="!isFullMode" :class="[collapsed ? 'w-20' : 'w-72', 'bg-white dark:bg-[#1a1a1a] border-r border-slate-200 dark:border-slate-700 flex flex-col transition-[width] duration-300']">
       <div class="px-6 py-5 border-b border-slate-200">
         <div class="flex items-center gap-3">
           <div class="h-10 w-10 rounded bg-gradient-to-br from-indigo-600 to-purple-600"></div>
@@ -82,14 +108,17 @@ onMounted(() => {
       </div>
       <nav class="flex-1 px-3 py-4 space-y-1 animate-fade-in">
         <RouterLink
-          v-for="item in currentMenu"
+          v-for="item in menuItems"
           :key="item.name"
           :to="item.path"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
+          :aria-disabled="item.disabled ? 'true' : 'false'"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200
+                 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800
+                 focus:outline-none focus:ring-2 focus:ring-brand-primary"
           active-class="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
         >
           <span>{{ item.icon }}</span>
-          <span class="font-medium">{{ item.name }}</span>
+          <span class="font-medium" :class="item.disabled ? 'opacity-60' : ''">{{ item.name }}</span>
         </RouterLink>
       </nav>
       <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700">
@@ -116,7 +145,7 @@ onMounted(() => {
       </div>
     </aside>
     <main class="flex-1 flex flex-col">
-      <header class="bg-white dark:bg-[#1a1a1a] border-b border-slate-200 dark:border-slate-700">
+      <header v-if="!isFullMode" class="bg-white dark:bg-[#1a1a1a] border-b border-slate-200 dark:border-slate-700">
         <div class="px-6 py-4 flex items-center justify-between">
           <div class="text-lg font-semibold text-slate-900 dark:text-white">
             {{ (route.name ? route.name.toString().toUpperCase().replace(/-/g, ' ') : 'DASHBOARD') }}

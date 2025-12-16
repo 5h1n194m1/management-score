@@ -21,11 +21,33 @@ export const setEventStatus = async (eventId, status) => {
     .select()
 }
 
-export const createEvent = async (adminId, title, status = 'draft') => {
+export const createEvent = async (adminId, title, status = 'draft', starts_at = null, description = null, category = null) => {
+  const payload = { admin_id: adminId, title, status }
+  if (starts_at) payload.created_at = starts_at
+  if (description) payload.description = description
+  if (category) payload.category = category
+  const res = await supabase.from('events').insert(payload).select()
+  if (res.error) {
+    const fallback = { admin_id: adminId, title, status }
+    if (starts_at) fallback.created_at = starts_at
+    return supabase.from('events').insert(fallback).select()
+  }
+  return res
+}
+
+export const updateEvent = async (eventId, payload) => {
   return supabase
     .from('events')
-    .insert({ admin_id: adminId, title, status })
+    .update(payload)
+    .eq('id', eventId)
     .select()
+}
+
+export const deleteEvent = async (eventId) => {
+  return supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId)
 }
 
 export const getEventSettings = async (eventId) => {
@@ -55,6 +77,14 @@ export const togglePotHidden = async (potId, isHidden) => {
   return supabase
     .from('pots')
     .update({ is_hidden: isHidden })
+    .eq('id', potId)
+    .select()
+}
+
+export const updatePotName = async (potId, name) => {
+  return supabase
+    .from('pots')
+    .update({ name })
     .eq('id', potId)
     .select()
 }
@@ -115,6 +145,14 @@ export const deleteTeam = async (teamId) => {
     .from('teams')
     .delete()
     .eq('id', teamId)
+}
+
+export const updateTeam = async (teamId, payload) => {
+  return supabase
+    .from('teams')
+    .update(payload)
+    .eq('id', teamId)
+    .select()
 }
 
 export const getGamesByPot = async (potId) => {

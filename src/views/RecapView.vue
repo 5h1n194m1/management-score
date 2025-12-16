@@ -78,26 +78,26 @@ onMounted(load)
       <table class="min-w-full border border-black">
         <thead>
           <tr>
-            <th rowspan="2" class="px-3 py-2 text-center font-semibold border border-black" style="background-color:#ffe600">No</th>
-            <th rowspan="2" class="px-3 py-2 text-left font-semibold border border-black" style="background-color:#ffe600">Nama Tim</th>
-            <th :colspan="games.length * 3" class="px-3 py-2 text-center font-semibold border border-black" style="background-color:#ffe600">
+            <th rowspan="2" class="px-3 py-2 text-center font-semibold border border-slate-900 dark:border-slate-200 bg-amber-300 dark:bg-amber-400">No</th>
+            <th rowspan="2" class="px-3 py-2 text-left font-semibold border border-slate-900 dark:border-slate-200 bg-amber-300 dark:bg-amber-400">Nama Tim</th>
+            <th :colspan="games.length * 3" class="px-3 py-2 text-center font-semibold border border-slate-900 dark:border-slate-200 bg-amber-300 dark:bg-amber-400">
               POT {{ (pots.find(p => p.id === selectedPotId)?.name || '') }}
             </th>
-            <th rowspan="2" class="px-3 py-2 text-center font-semibold border border-black" style="background-color:#ffe600">Total Point</th>
-            <th rowspan="2" class="px-3 py-2 text-center font-semibold border border-black" style="background-color:#ffe600">Juara</th>
+            <th rowspan="2" class="px-3 py-2 text-center font-semibold border border-slate-900 dark:border-slate-200 bg-amber-300 dark:bg-amber-400">Total Point</th>
+            <th rowspan="2" class="px-3 py-2 text-center font-semibold border border-slate-900 dark:border-slate-200 bg-amber-300 dark:bg-amber-400">Juara</th>
           </tr>
           <tr>
             <template v-for="g in games" :key="g.id">
-              <th colspan="3" class="px-3 py-2 text-center font-semibold border border-black" style="background-color:#ffe600">
+              <th colspan="3" class="px-3 py-2 text-center font-semibold border border-slate-900 dark:border-slate-200 bg-amber-300 dark:bg-amber-400">
                 GAME {{ g.game_number }}
               </th>
             </template>
           </tr>
           <tr>
             <template v-for="g in games" :key="'sub-'+g.id">
-              <th class="px-3 py-2 text-center border border-black" style="background-color:#ffe600">Rank</th>
-              <th class="px-3 py-2 text-center border border-black" style="background-color:#ffe600">P.Rank</th>
-              <th class="px-3 py-2 text-center border border-black" style="background-color:#ffe600">P.Kill</th>
+              <th class="px-3 py-2 text-center border border-slate-900 dark:border-slate-200 bg-amber-200 dark:bg-amber-300">Rank</th>
+              <th class="px-3 py-2 text-center border border-slate-900 dark:border-slate-200 bg-amber-200 dark:bg-amber-300">P.Rank</th>
+              <th class="px-3 py-2 text-center border border-slate-900 dark:border-slate-200 bg-amber-200 dark:bg-amber-300">P.Kill</th>
             </template>
           </tr>
         </thead>
