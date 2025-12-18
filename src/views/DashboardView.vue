@@ -1,26 +1,45 @@
 <template>
-  <div class="p-6 max-w-7xl mx-auto">
-    <!-- Header Section -->
+  <div class="p-6 max-w-7xl mx-auto min-h-screen bg-gray-50 dark:bg-gray-900">
     <div class="flex justify-between items-center mb-8">
-      <h1 class="text-2xl font-bold dark:text-white">Daftar Event</h1>
-      <button @click="handleCreateEvent" :disabled="isCreating" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-        {{ isCreating ? 'Menyiapkan...' : '+ Buat Event Baru' }}
+      <div>
+        <h1 class="text-2xl font-bold dark:text-white">Tournament Dashboard</h1>
+        <p class="text-sm text-gray-500">Selamat datang, {{ userProfile?.username || 'Admin' }}</p>
+      </div>
+      
+      <button 
+        @click="handleCreateEvent" 
+        :disabled="isCreating"
+        class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
+      >
+        <span v-if="isCreating" class="animate-spin text-lg">⏳</span>
+        {{ isCreating ? 'Creating...' : '+ Create New Event' }}
       </button>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="isLoading" class="text-center py-10 text-gray-500">Memuat event...</div>
-    
-    <!-- Event Grid -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div v-for="event in events" :key="event.id" class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
-        <h3 class="font-bold text-lg mb-2 dark:text-white">{{ event.title }}</h3>
-        <p class="text-sm text-gray-500 mb-4">Dibuat: {{ new Date(event.created_at).toLocaleDateString() }}</p>
-        <div class="flex gap-2">
-          <router-link :to="`/manager/${event.id}`" class="flex-1 text-center py-2 bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-100 font-medium">
+    <div v-if="isLoading" class="flex justify-center py-20">
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+    </div>
+
+    <div v-else-if="events.length === 0" class="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+      <p class="text-gray-500 dark:text-gray-400">Belum ada event. Mulai dengan membuat event baru!</p>
+    </div>
+
+    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div v-for="event in events" :key="event.id" class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+        <div class="flex justify-between items-start mb-4">
+          <div class="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600">🏆</div>
+          <span :class="['px-2 py-1 text-[10px] font-bold rounded uppercase', event.status === 'live' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600']">
+            {{ event.status }}
+          </span>
+        </div>
+        <h3 class="font-bold text-lg dark:text-white mb-1">{{ event.title }}</h3>
+        <p class="text-xs text-gray-500 mb-6 font-mono">{{ event.id }}</p>
+        
+        <div class="flex gap-3">
+          <router-link :to="`/manager/${event.id}`" class="flex-1 text-center py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">
             Kelola
           </router-link>
-          <router-link :to="`/live/${event.id}`" class="px-3 py-2 bg-emerald-50 text-emerald-600 rounded-md hover:bg-emerald-100">
+          <router-link :to="`/live/${event.id}`" class="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 transition">
             👁️
           </router-link>
         </div>
@@ -37,32 +56,54 @@ import { supabase } from '@/supabaseClient';
 const events = ref([]);
 const isLoading = ref(true);
 const isCreating = ref(false);
+const userProfile = ref(null);
 const router = useRouter();
 
-const fetchEvents = async () => {
+const fetchUserAndEvents = async () => {
   isLoading.value = true;
-  const { data, error } = await supabase.from('events').select('*').order('created_at', { ascending: false });
-  if (!error) events.value = data;
-  isLoading.value = false;
-};
-
-const handleCreateEvent = async () => {
-  isCreating.value = true;
   try {
-    // 1. Ambil user yang sedang login
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      alert("Sesi berakhir, silakan login kembali.");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push('/login');
       return;
     }
 
-    // 2. Insert ke tabel events
+    // Ambil profile user
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    userProfile.value = profile;
+
+    // Ambil semua event (Jika admin, ambil semua. Jika operator, ambil yang relevan)
+    const { data: eventsData, error } = await supabase
+      .from('events')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    events.value = eventsData || [];
+  } catch (err) {
+    console.error(err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const handleCreateEvent = async () => {
+  if (isCreating.value) return;
+  isCreating.value = true;
+  
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // 1. Insert Event
     const { data: newEvent, error: evError } = await supabase
       .from('events')
       .insert([{
-        title: 'Turnamen Baru ' + new Date().toLocaleDateString(),
-        admin_id: user.id, // WAJIB ADA
+        title: 'New Tournament ' + new Date().toLocaleDateString(),
+        admin_id: user.id, // Pastikan ini UUID yang valid
         status: 'draft'
       }])
       .select()
@@ -70,25 +111,34 @@ const handleCreateEvent = async () => {
 
     if (evError) throw evError;
 
-    // 3. (Opsional) Langsung buatkan 1 Pot default agar tidak kosong
+    // 2. Default Point Mapping (12 Slot)
+    const pts = [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0];
+    const mappings = pts.map((p, i) => ({
+      event_id: newEvent.id,
+      rank_position: i + 1,
+      points: p
+    }));
+    await supabase.from('point_mapping').insert(mappings);
+
+    // 3. Langsung buat 1 Pot awal
     await supabase.from('pots').insert([{
       event_id: newEvent.id,
-      name: 'Group Stage',
+      name: 'Pot A',
       display_order: 1
     }]);
 
-    // 4. Redirect ke halaman manager
-    router.push(`/manager/${newEvent.id}`);
+    // Berhasil, refresh list
+    await fetchUserAndEvents();
+    alert('Event Berhasil Dibuat!');
     
   } catch (err) {
-    console.error("Gagal membuat event:", err);
-    alert("Gagal: " + err.message);
+    alert('Gagal membuat event: ' + err.message);
   } finally {
     isCreating.value = false;
   }
 };
 
-onMounted(fetchEvents);
+onMounted(fetchUserAndEvents);
 </script>
 
 <style scoped>

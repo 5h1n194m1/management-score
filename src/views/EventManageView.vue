@@ -1,16 +1,16 @@
 <template>
-  <div :class="{ 'dark': isDarkMode }" class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+  <div :class="{'dark': isDarkMode}" class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
     <!-- Navbar Section -->
     <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30 border-b dark:border-gray-700">
       <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <div class="flex items-center gap-4">
           <router-link to="/dashboard" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" :class="{'text-gray-600 dark:text-gray-300': !isDarkMode, 'text-white': isDarkMode}">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </router-link>
-          <h1 class="text-xl font-bold text-gray-800 dark:text-white truncate max-w-[200px] md:max-w-none">
-            {{ eventDetails?.title || 'Loading Event...' }}
+          <h1 class="text-xl font-bold dark:text-white truncate max-w-[200px] md:max-w-none">
+            {{ eventDetails?.title || 'Loading...' }}
           </h1>
         </div>
 
@@ -29,7 +29,7 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto p-4 md:p-6">
+    <main class="max-w-7xl mx-auto p-6">
       <div v-if="error" class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex items-center justify-between">
         <div class="flex items-center">
           <span class="text-red-500 mr-3">⚠️</span>
@@ -92,41 +92,16 @@
                   <th class="sticky left-0 z-20 bg-gray-50 dark:bg-gray-900 p-4 border-b border-gray-200 dark:border-gray-700 font-bold text-gray-700 dark:text-gray-300">
                     NAMA TIM
                   </th>
-                  <th v-for="game in currentPot.games" :key="game.id" colspan="2" class="p-4 border-b border-l border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 text-center min-w-[140px]">
-                    <div class="flex items-center justify-center gap-2">
-                      <span class="font-black text-indigo-600 dark:text-indigo-400">G{{ game.game_number }}</span>
-                      <button @click="handleDeleteGame(game.id)" class="text-[10px] text-red-400 hover:text-red-600">✕</button>
-                    </div>
+                  <th v-for="game in currentPot.games" :key="game.id" colspan="2" class="p-4 border-b border-l dark:border-gray-700 text-center dark:text-gray-300">
+                    G{{ game.game_number }}
                   </th>
-                  <th class="p-4 border-b border-l border-gray-200 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/10 text-center font-black text-amber-600 w-24">
-                    TOTAL
-                  </th>
-                </tr>
-                <tr class="text-[10px] bg-gray-50 dark:bg-gray-900 uppercase tracking-wider">
-                  <th class="sticky left-0 z-20 bg-gray-50 dark:bg-gray-900 p-2 border-b border-gray-200 dark:border-gray-700"></th>
-                  <template v-for="n in currentPot.games?.length" :key="n">
-                    <th class="p-2 border-b border-l border-gray-200 dark:border-gray-700 text-center">Placement</th>
-                    <th class="p-2 border-b border-gray-200 dark:border-gray-700 text-center">Kill</th>
-                  </template>
-                  <th class="p-2 border-b border-l border-gray-200 dark:border-gray-700"></th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(team, index) in rankedTeams" :key="team.id" class="group hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors">
-                  <td class="sticky left-0 z-10 bg-white dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 font-bold">
-                    <div class="flex items-center justify-between group">
-                      <span class="flex items-center gap-2 text-gray-800 dark:text-gray-200">
-                        <span class="text-[10px] text-gray-400 w-4">#{{ index + 1 }}</span>
-                        {{ team.name }}
-                      </span>
-                      <button @click="handleDeleteTeam(team.id)" class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity">
-                        ✕
-                      </button>
-                    </div>
-                  </td>
-
+                <tr v-for="team in rankedTeams" :key="team.id">
+                  <td class="p-4 border-b dark:border-gray-700 dark:text-white font-bold">{{ team.name }}</td>
                   <template v-for="game in currentPot.games" :key="game.id">
-                    <td class="p-2 border-b border-l border-gray-200 dark:border-gray-700">
+                    <td class="p-2 border-b border-l dark:border-gray-700">
                       <input 
                         type="number" 
                         class="w-full bg-transparent text-center font-semibold text-gray-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1"
@@ -146,7 +121,7 @@
                     </td>
                   </template>
 
-                  <td class="p-4 border-b border-l border-gray-200 dark:border-gray-700 text-center font-black text-lg bg-gray-50/30 dark:bg-gray-900/20 text-indigo-600 dark:text-indigo-400">
+                  <td class="p-4 border-b border-l dark:border-gray-700 text-center font-black text-lg bg-gray-50/30 dark:bg-gray-900/20 text-indigo-600 dark:text-indigo-400">
                     {{ calculateTotalPoints(team) }}
                   </td>
                 </tr>
@@ -177,7 +152,6 @@ const eventId = computed(() => route.params.eventId);
 const pots = ref([]);
 const selectedPotId = ref(null);
 const eventDetails = ref(null);
-const pointMapping = ref([]);
 const isLoading = ref(true);
 const error = ref(null);
 
@@ -185,109 +159,59 @@ const error = ref(null);
 const showAddPotModal = ref(false);
 const newPotName = ref('');
 
-// --- FUNGSI UTAMA ---
+// Computed Properties
+const currentPot = computed(() => {
+  return pots.value.find(p => p.id === selectedPotId.value) || null;
+});
 
+// Fetch Pots and Teams from Supabase
 const fetchPotsAndTeams = async () => {
-  if (!eventId.value) {
-    isLoading.value = false;
-    return;
-  }
-
+  if (!eventId.value) return;
   isLoading.value = true;
-  error.value = null;
-
   try {
-    // 1. Ambil Detail Event & Point Mapping
-    const [evRes, ptRes] = await Promise.all([ 
-      supabase.from('events').select('*').eq('id', eventId.value).single(),
-      supabase.from('point_mapping').select('*').eq('event_id', eventId.value)
-    ]);
+    const { data: ev } = await supabase.from('events').select('*').eq('id', eventId.value).single();
+    eventDetails.value = ev;
 
-    if (evRes.error) throw evRes.error;
-    eventDetails.value = evRes.data;
-    pointMapping.value = ptRes.data || [];
-
-    // 2. Ambil Pots dan Games
-    const { data: potsData, error: pErr } = await supabase
-      .from('pots')
-      .select('*, games(*)')
-      .eq('event_id', eventId.value)
-      .order('display_order');
-
-    if (pErr) throw pErr;
-
-    // 3. Ambil Tim dan Skor secara paralel (Efisiensi Tinggi)
+    const { data: potsData } = await supabase.from('pots').select('*, games(*)').eq('event_id', eventId.value).order('display_order');
+    
     const formattedPots = await Promise.all(potsData.map(async (pot) => {
-      const { data: teamMap } = await supabase
-        .from('team_pot_mapping')
-        .select('teams(*)')
-        .eq('pot_id', pot.id);
-      
-      const teams = teamMap?.map(m => m.teams).filter(Boolean) || [];
-      const gameIds = pot.games.map(g => g.id);
-
-      let scores = [];
-      if (teams.length > 0 && gameIds.length > 0) {
-        const { data: sData } = await supabase
-          .from('raw_scores')
-          .select('*')
-          .in('game_id', gameIds)
-          .in('team_id', teams.map(t => t.id));
-        scores = sData || [];
-      }
+      const { data: tMap } = await supabase.from('team_pot_mapping').select('teams(*)').eq('pot_id', pot.id);
+      const teams = tMap?.map(m => m.teams) || [];
+      const { data: scores } = await supabase.from('raw_scores').select('*').in('game_id', pot.games.map(g => g.id));
 
       return {
         ...pot,
-        games: pot.games.sort((a, b) => a.game_number - b.game_number),
         teams: teams.map(t => ({
           ...t,
-          scores: scores.filter(s => s.team_id === t.id)
+          scores: scores?.filter(s => s.team_id === t.id) || []
         }))
       };
     }));
 
     pots.value = formattedPots;
-    if (formattedPots.length > 0 && !selectedPotId.value) {
-      selectedPotId.value = formattedPots[0].id;
-    }
-  } catch (err) {
-    console.error("Fetch Error:", err);
-    error.value = "Gagal memuat data turnamen. Pastikan RLS diizinkan.";
+    if (formattedPots.length > 0) selectedPotId.value = formattedPots[0].id;
   } finally {
     isLoading.value = false;
   }
 };
 
-const handleAddPot = async () => {
-  if (!newPotName.value) return;
-  
-  try {
-    // Pastikan eventId diambil dari parameter URL
-    const currentEventId = route.params.eventId;
-
-    const { data, error: potErr } = await supabase
-      .from('pots')
-      .insert([{ 
-        event_id: currentEventId, 
-        name: newPotName.value,
-        display_order: pots.value.length + 1 
-      }])
-      .select()
-      .single();
-    
-    if (potErr) throw potErr;
-
-    // Tutup modal dan refresh data
-    showAddPotModal.value = false;
-    newPotName.value = '';
-    await fetchPotsAndTeams(); // Refresh tampilan
-    
-    alert("Pot berhasil ditambahkan!");
-  } catch (err) {
-    console.error("Error adding pot:", err);
-    alert("Gagal menambahkan pot: " + err.message);
-  }
+// Helper function to calculate total points
+const calculateTotalPoints = (team) => {
+  return team.scores.reduce((a, b) => a + (b.p_rank || 0) + (b.kill || 0), 0);
 };
+
+// Helper function to update scores
+const handleScoreUpdate = async (teamId, gameId, type, value) => {
+  const parsedValue = parseInt(value) || 0;
+  await supabase.from('raw_scores').upsert({ team_id: teamId, game_id: gameId, [type]: parsedValue }, { onConflict: ['team_id', 'game_id'] });
+  fetchPotsAndTeams(); // Refresh data
+};
+
+// Ranked Teams computed property
+const rankedTeams = computed(() => {
+  if (!currentPot.value) return [];
+  return [...currentPot.value.teams].sort((a, b) => calculateTotalPoints(b) - calculateTotalPoints(a));
+});
 
 onMounted(fetchPotsAndTeams);
 </script>
