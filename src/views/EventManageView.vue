@@ -260,23 +260,32 @@ const fetchPotsAndTeams = async () => {
 
 const handleAddPot = async () => {
   if (!newPotName.value) return;
+  
   try {
-    const { data, error } = await supabase
+    // Pastikan eventId diambil dari parameter URL
+    const currentEventId = route.params.eventId;
+
+    const { data, error: potErr } = await supabase
       .from('pots')
       .insert([{ 
-        event_id: eventId.value, 
+        event_id: currentEventId, 
         name: newPotName.value,
         display_order: pots.value.length + 1 
       }])
       .select()
       .single();
     
-    if (error) throw error;
+    if (potErr) throw potErr;
+
+    // Tutup modal dan refresh data
     showAddPotModal.value = false;
     newPotName.value = '';
-    fetchPotsAndTeams();
+    await fetchPotsAndTeams(); // Refresh tampilan
+    
+    alert("Pot berhasil ditambahkan!");
   } catch (err) {
-    alert(err.message);
+    console.error("Error adding pot:", err);
+    alert("Gagal menambahkan pot: " + err.message);
   }
 };
 

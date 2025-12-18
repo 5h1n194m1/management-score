@@ -47,30 +47,42 @@ const fetchEvents = async () => {
 };
 
 const handleCreateEvent = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return alert("Anda harus login!");
-
   isCreating.value = true;
   try {
-    const { data: newEvent, error } = await supabase.from('events').insert([{
-      title: 'Turnamen Baru ' + new Date().toLocaleTimeString(),
-      admin_id: user.id,
-      status: 'draft'
-    }]).select().single();
-
-    if (error) throw error;
+    // 1. Ambil user yang sedang login
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    // Auto-create point mapping default (1-12)
-    const pts = [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0];
-    await supabase.from('point_mapping').insert(pts.map((p, i) => ({
-      event_id: newEvent.id,
-      rank_position: i + 1,
-      points: p
-    })));
+    if (authError || !user) {
+      alert("Sesi berakhir, silakan login kembali.");
+      return;
+    }
 
+    // 2. Insert ke tabel events
+    const { data: newEvent, error: evError } = await supabase
+      .from('events')
+      .insert([{
+        title: 'Turnamen Baru ' + new Date().toLocaleDateString(),
+        admin_id: user.id, // WAJIB ADA
+        status: 'draft'
+      }])
+      .select()
+      .single();
+
+    if (evError) throw evError;
+
+    // 3. (Opsional) Langsung buatkan 1 Pot default agar tidak kosong
+    await supabase.from('pots').insert([{
+      event_id: newEvent.id,
+      name: 'Group Stage',
+      display_order: 1
+    }]);
+
+    // 4. Redirect ke halaman manager
     router.push(`/manager/${newEvent.id}`);
-  } catch (e) {
-    alert(e.message);
+    
+  } catch (err) {
+    console.error("Gagal membuat event:", err);
+    alert("Gagal: " + err.message);
   } finally {
     isCreating.value = false;
   }
