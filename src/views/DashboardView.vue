@@ -1,132 +1,109 @@
 <template>
-  <div>
-    <div class="card welcome-card">
-      <h1>Dashboard Publik</h1>
-      <p class="lead">Ringkasan event yang sedang berlangsung dan telah selesai.</p>
+  <div class="p-6 max-w-7xl mx-auto">
+    <!-- Header Section -->
+    <div class="flex justify-between items-center mb-8">
+      <h1 class="text-2xl font-bold dark:text-white">Daftar Event</h1>
+      <button @click="handleCreateEvent" :disabled="isCreating" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+        {{ isCreating ? 'Menyiapkan...' : '+ Buat Event Baru' }}
+      </button>
     </div>
 
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      Memuat data event...
-    </div>
-
-    <div v-else-if="error" class="error-alert">
-      🚨 Error Koneksi: {{ error }}. Harap periksa koneksi Supabase.
-    </div>
-
-    <div v-else>
-      <div class="metrics-grid">
-        <div class="metric-card card live-card">
-          <h3>Event LIVE</h3>
-          <p class="metric-value">{{ liveEventsCount }}</p>
+    <!-- Loading State -->
+    <div v-if="isLoading" class="text-center py-10 text-gray-500">Memuat event...</div>
+    
+    <!-- Event Grid -->
+    <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div v-for="event in events" :key="event.id" class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border dark:border-gray-700">
+        <h3 class="font-bold text-lg mb-2 dark:text-white">{{ event.title }}</h3>
+        <p class="text-sm text-gray-500 mb-4">Dibuat: {{ new Date(event.created_at).toLocaleDateString() }}</p>
+        <div class="flex gap-2">
+          <router-link :to="`/manager/${event.id}`" class="flex-1 text-center py-2 bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-100 font-medium">
+            Kelola
+          </router-link>
+          <router-link :to="`/live/${event.id}`" class="px-3 py-2 bg-emerald-50 text-emerald-600 rounded-md hover:bg-emerald-100">
+            👁️
+          </router-link>
         </div>
-        <div class="metric-card card completed-card">
-          <h3>Event SELESAI</h3>
-          <p class="metric-value">{{ completedEventsCount }}</p>
-        </div>
-        <div class="metric-card card total-card">
-          <h3>Total Event Publik</h3>
-          <p class="metric-value">{{ totalPublicEvents }}</p>
-        </div>
-      </div>
-
-      <div class="card data-card">
-        <h2>Daftar Event Aktif</h2>
-
-        <table class="event-table" v-if="totalPublicEvents > 0">
-          <thead>
-            <tr>
-              <th>No</th>
-              <th>Nama Event</th>
-              <th>Status</th>
-              <th>Dibuat Tanggal</th>
-              <th class="text-right">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(event, index) in events" :key="event.id">
-              <td>{{ index + 1 }}</td>
-              <td>{{ event.title }}</td>
-              <td>
-                <span :class="['status-badge', event.status]">{{ event.status.toUpperCase() }}</span>
-              </td>
-              <td>{{ new Date(event.created_at).toLocaleDateString('id-ID') }}</td>
-              <td class="text-right">
-                <button class="btn btn-view">Lihat Score</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-else class="no-events-message">
-          Tidak ada event yang berstatus LIVE atau COMPLETED saat ini.
-        </p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import { supabase } from '@/supabaseClient.js';
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { supabase } from '@/supabaseClient';
 
 const events = ref([]);
-const loading = ref(true);
-const error = ref(null);
+const isLoading = ref(true);
+const isCreating = ref(false);
+const router = useRouter();
 
 const fetchEvents = async () => {
-    loading.value = true;
-    error.value = null;
-
-    const { data, error: fetchError } = await supabase
-        .from('events')
-        .select('id, title, status, created_at');
-
-    if (fetchError) {
-        error.value = fetchError.message;
-    } else {
-        events.value = data;
-    }
-    loading.value = false;
+  isLoading.value = true;
+  const { data, error } = await supabase.from('events').select('*').order('created_at', { ascending: false });
+  if (!error) events.value = data;
+  isLoading.value = false;
 };
 
-const liveEventsCount = computed(() => {
-    return events.value.filter(e => e.status === 'live').length;
-});
+const handleCreateEvent = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return alert("Anda harus login!");
 
-const completedEventsCount = computed(() => {
-    return events.value.filter(e => e.status === 'completed').length;
-});
+  isCreating.value = true;
+  try {
+    const { data: newEvent, error } = await supabase.from('events').insert([{
+      title: 'Turnamen Baru ' + new Date().toLocaleTimeString(),
+      admin_id: user.id,
+      status: 'draft'
+    }]).select().single();
 
-const totalPublicEvents = computed(() => {
-    return liveEventsCount.value + completedEventsCount.value;
-});
+    if (error) throw error;
+    
+    // Auto-create point mapping default (1-12)
+    const pts = [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0];
+    await supabase.from('point_mapping').insert(pts.map((p, i) => ({
+      event_id: newEvent.id,
+      rank_position: i + 1,
+      points: p
+    })));
 
-onMounted(() => {
-    fetchEvents();
-});
+    router.push(`/manager/${newEvent.id}`);
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    isCreating.value = false;
+  }
+};
+
+onMounted(fetchEvents);
 </script>
 
 <style scoped>
-/* Styling untuk Dashboard */
-.metrics-grid {
+/* Styling for Event List */
+.grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
-  margin-bottom: 30px;
 }
 
-.metric-card {
+.card {
   padding: 20px;
-  background-color: #2d2d2d;
-  color: white;
+  background-color: #fff;
+  color: #333;
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.card h3 {
+.card h1 {
+  font-size: 1.5em;
   margin-bottom: 10px;
+}
+
+.card .card-title {
   font-size: 1.2em;
   font-weight: bold;
+  margin-bottom: 10px;
 }
 
 .card .metric-value {
@@ -187,5 +164,10 @@ onMounted(() => {
   font-style: italic;
   color: #aaa;
   text-align: center;
+}
+
+/* Additional Styling for Buttons */
+button:disabled {
+  opacity: 0.5;
 }
 </style>

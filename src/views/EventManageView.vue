@@ -1,10 +1,11 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+  <div :class="{ 'dark': isDarkMode }" class="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <!-- Navbar Section -->
     <nav class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30 border-b dark:border-gray-700">
       <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <div class="flex items-center gap-4">
           <router-link to="/dashboard" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" :class="{'text-gray-600 dark:text-gray-300': !isDarkMode, 'text-white': isDarkMode}">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </router-link>
@@ -27,6 +28,7 @@
       </div>
     </nav>
 
+    <!-- Main Content -->
     <main class="max-w-7xl mx-auto p-4 md:p-6">
       <div v-if="error" class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg flex items-center justify-between">
         <div class="flex items-center">
@@ -36,16 +38,17 @@
         <button @click="error = null" class="text-red-400 hover:text-red-600">✕</button>
       </div>
 
+      <!-- Pot Buttons Section -->
       <div class="flex overflow-x-auto pb-2 mb-6 no-scrollbar gap-2">
         <button 
           v-for="pot in pots" 
           :key="pot.id"
           @click="selectedPotId = pot.id"
-          :class="[
-            'flex-none px-6 py-2.5 rounded-full font-semibold transition-all duration-200 shadow-sm border',
-            selectedPotId === pot.id 
-              ? 'bg-indigo-600 text-white border-indigo-600' 
-              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50'
+          :class="[ 
+            'flex-none px-6 py-2.5 rounded-full font-semibold transition-all duration-200 shadow-sm border', 
+            selectedPotId === pot.id ? 
+              'bg-indigo-600 text-white border-indigo-600' : 
+              'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50'
           ]"
         >
           {{ pot.name }}
@@ -55,6 +58,7 @@
         </button>
       </div>
 
+      <!-- Pot Details Section -->
       <div v-if="currentPot" class="space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-2">
@@ -79,6 +83,7 @@
           </div>
         </div>
 
+        <!-- Pot Table Section -->
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div class="overflow-x-auto overflow-y-visible">
             <table class="w-full text-left border-separate border-spacing-0">
@@ -151,16 +156,16 @@
         </div>
       </div>
 
+      <!-- Loading Overlay -->
       <div v-if="isLoading" class="fixed inset-0 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600"></div>
       </div>
     </main>
-
-    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { supabase } from '@/supabaseClient';
 
@@ -168,174 +173,205 @@ const route = useRoute();
 const router = useRouter();
 const eventId = computed(() => route.params.eventId);
 
-// --- RECOVERY STATES ---
+// States
 const pots = ref([]);
 const selectedPotId = ref(null);
 const eventDetails = ref(null);
 const pointMapping = ref([]);
 const isLoading = ref(true);
 const error = ref(null);
-const showSettings = ref(false);
+
+// Modal States
 const showAddPotModal = ref(false);
-const showAddTeamModal = ref(false);
+const newPotName = ref('');
 
-const currentPot = computed(() => pots.value.find(p => p.id === selectedPotId.value));
-
-// --- CORE DATABASE LOGIC ---
-
-const fetchEventDetails = async () => {
-    const { data, error: e } = await supabase.from('events').select('*').eq('id', eventId.value).single();
-    if (e) throw e;
-    eventDetails.value = data;
-};
-
-const fetchPointMapping = async () => {
-    const { data } = await supabase.from('point_mapping').select('*').eq('event_id', eventId.value);
-    pointMapping.value = data || [];
-};
+// --- FUNGSI UTAMA ---
 
 const fetchPotsAndTeams = async () => {
-    if (!eventId.value) return;
-    isLoading.value = true;
-    try {
-        await Promise.all([fetchEventDetails(), fetchPointMapping()]);
+  if (!eventId.value) {
+    isLoading.value = false;
+    return;
+  }
 
-        const { data: potsData, error: potErr } = await supabase
-            .from('pots')
-            .select('*, games(*)')
-            .eq('event_id', eventId.value)
-            .order('display_order');
-        
-        if (potErr) throw potErr;
+  isLoading.value = true;
+  error.value = null;
 
-        const fullPots = await Promise.all(potsData.map(async (pot) => {
-            const { data: teamMap } = await supabase
-                .from('team_pot_mapping')
-                .select('teams(*)')
-                .eq('pot_id', pot.id);
-            
-            const teams = teamMap?.map(m => m.teams) || [];
-            const gameIds = pot.games.map(g => g.id);
+  try {
+    // 1. Ambil Detail Event & Point Mapping
+    const [evRes, ptRes] = await Promise.all([ 
+      supabase.from('events').select('*').eq('id', eventId.value).single(),
+      supabase.from('point_mapping').select('*').eq('event_id', eventId.value)
+    ]);
 
-            let scores = [];
-            if (teams.length > 0 && gameIds.length > 0) {
-                const { data: sData } = await supabase
-                    .from('raw_scores')
-                    .select('*')
-                    .in('game_id', gameIds)
-                    .in('team_id', teams.map(t => t.id));
-                scores = sData || [];
-            }
+    if (evRes.error) throw evRes.error;
+    eventDetails.value = evRes.data;
+    pointMapping.value = ptRes.data || [];
 
-            return {
-                ...pot,
-                games: pot.games.sort((a, b) => a.game_number - b.game_number),
-                teams: teams.map(t => ({
-                    ...t,
-                    scores: scores.filter(s => s.team_id === t.id)
-                }))
-            };
-        }));
+    // 2. Ambil Pots dan Games
+    const { data: potsData, error: pErr } = await supabase
+      .from('pots')
+      .select('*, games(*)')
+      .eq('event_id', eventId.value)
+      .order('display_order');
 
-        pots.value = fullPots;
-        if (fullPots.length > 0 && !selectedPotId.value) selectedPotId.value = fullPots[0].id;
-    } catch (err) {
-        error.value = err.message;
-        console.error(err);
-    } finally {
-        isLoading.value = false;
+    if (pErr) throw pErr;
+
+    // 3. Ambil Tim dan Skor secara paralel (Efisiensi Tinggi)
+    const formattedPots = await Promise.all(potsData.map(async (pot) => {
+      const { data: teamMap } = await supabase
+        .from('team_pot_mapping')
+        .select('teams(*)')
+        .eq('pot_id', pot.id);
+      
+      const teams = teamMap?.map(m => m.teams).filter(Boolean) || [];
+      const gameIds = pot.games.map(g => g.id);
+
+      let scores = [];
+      if (teams.length > 0 && gameIds.length > 0) {
+        const { data: sData } = await supabase
+          .from('raw_scores')
+          .select('*')
+          .in('game_id', gameIds)
+          .in('team_id', teams.map(t => t.id));
+        scores = sData || [];
+      }
+
+      return {
+        ...pot,
+        games: pot.games.sort((a, b) => a.game_number - b.game_number),
+        teams: teams.map(t => ({
+          ...t,
+          scores: scores.filter(s => s.team_id === t.id)
+        }))
+      };
+    }));
+
+    pots.value = formattedPots;
+    if (formattedPots.length > 0 && !selectedPotId.value) {
+      selectedPotId.value = formattedPots[0].id;
     }
+  } catch (err) {
+    console.error("Fetch Error:", err);
+    error.value = "Gagal memuat data turnamen. Pastikan RLS diizinkan.";
+  } finally {
+    isLoading.value = false;
+  }
 };
 
-// --- SCORE UPDATE LOGIC ---
-
-const handleScoreUpdate = async (teamId, gameId, type, value) => {
-    const val = parseInt(value) || 0;
-    let pRank = 0;
+const handleAddPot = async () => {
+  if (!newPotName.value) return;
+  try {
+    const { data, error } = await supabase
+      .from('pots')
+      .insert([{ 
+        event_id: eventId.value, 
+        name: newPotName.value,
+        display_order: pots.value.length + 1 
+      }])
+      .select()
+      .single();
     
-    if (type === 'rank') {
-        const mapping = pointMapping.value.find(m => m.rank_position === val);
-        pRank = mapping ? mapping.points : 0;
-    }
-
-    try {
-        // Upsert logic (Check if exists, then update or insert)
-        const { data: existing } = await supabase
-            .from('raw_scores')
-            .select('id')
-            .eq('team_id', teamId)
-            .eq('game_id', gameId)
-            .single();
-
-        if (existing) {
-            const upData = { [type]: val };
-            if (type === 'rank') upData.p_rank = pRank;
-            await supabase.from('raw_scores').update(upData).eq('id', existing.id);
-        } else {
-            await supabase.from('raw_scores').insert({
-                team_id: teamId,
-                game_id: gameId,
-                rank: type === 'rank' ? val : 0,
-                kill: type === 'kill' ? val : 0,
-                p_rank: type === 'rank' ? pRank : 0
-            });
-        }
-        
-        // Update local state for reactive UI (Cepat & hemat kuota)
-        updateLocalScore(teamId, gameId, type, val, pRank);
-    } catch (err) {
-        error.value = "Gagal simpan skor: " + err.message;
-    }
+    if (error) throw error;
+    showAddPotModal.value = false;
+    newPotName.value = '';
+    fetchPotsAndTeams();
+  } catch (err) {
+    alert(err.message);
+  }
 };
-
-const updateLocalScore = (teamId, gameId, type, val, pRank) => {
-    const pot = pots.value.find(p => p.id === selectedPotId.value);
-    const team = pot.teams.find(t => t.id === teamId);
-    let score = team.scores.find(s => s.game_id === gameId);
-    
-    if (!score) {
-        score = { team_id: teamId, game_id: gameId, rank: 0, kill: 0, p_rank: 0 };
-        team.scores.push(score);
-    }
-    
-    score[type] = val;
-    if (type === 'rank') score.p_rank = pRank;
-};
-
-// --- HELPER FUNCTIONS ---
-
-const getScoreValue = (teamId, gameId, type) => {
-    const team = currentPot.value?.teams.find(t => t.id === teamId);
-    const score = team?.scores.find(s => s.game_id === gameId);
-    return score ? score[type] : '';
-};
-
-const calculateTotalPoints = (team) => {
-    return team.scores.reduce((sum, s) => sum + (s.p_rank || 0) + (s.kill || 0), 0);
-};
-
-const rankedTeams = computed(() => {
-    if (!currentPot.value) return [];
-    return [...currentPot.value.teams].sort((a, b) => {
-        const totalA = calculateTotalPoints(a);
-        const totalB = calculateTotalPoints(b);
-        if (totalB !== totalA) return totalB - totalA;
-        const killA = a.scores.reduce((sum, s) => sum + s.kill, 0);
-        const killB = b.scores.reduce((sum, s) => sum + s.kill, 0);
-        return killB - killA;
-    });
-});
-
-// --- ACTION LOGIC (STUBS FOR YOU TO COMPLETE) ---
-const handleAddGame = async () => { /* Logic Insert to 'games' using currentPot.id */ };
-const handleDeleteGame = async (id) => { /* Logic Delete */ };
-const handleDeleteTeam = async (id) => { /* Logic Delete mapping/team */ };
 
 onMounted(fetchPotsAndTeams);
 </script>
 
 <style scoped>
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* Styling for Event List */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.card {
+  padding: 20px;
+  background-color: #fff;
+  color: #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card h1 {
+  font-size: 1.5em;
+  margin-bottom: 10px;
+}
+
+.card .card-title {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.card .metric-value {
+  font-size: 2em;
+  font-weight: bold;
+}
+
+.card .live-card { background-color: #5cb85c; }
+.card .completed-card { background-color: #5bc0de; }
+.card .total-card { background-color: #f0ad4e; }
+
+.event-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+  margin-top: 20px;
+}
+
+.event-table th, .event-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #444;
+}
+
+.event-table th {
+  background-color: #3a3a3a;
+  color: white;
+}
+
+.event-table tr:hover {
+  background-color: #2b2b2b;
+}
+
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 12px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.status-badge.live { background-color: #5cb85c; }
+.status-badge.completed { background-color: #5bc0de; }
+
+.btn-view {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-view:hover {
+  background-color: #218838;
+}
+
+.no-events-message {
+  font-style: italic;
+  color: #aaa;
+  text-align: center;
+}
+
+/* Additional Styling for Buttons */
+button:disabled {
+  opacity: 0.5;
+}
 </style>
